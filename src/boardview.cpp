@@ -6,7 +6,7 @@
 using namespace squi;
 
 BoardView::Impl::Impl(const BoardView &args)
-	: Widget(args.widget, Widget::Flags::Default()),
+	: Widget(args.widget, Widget::FlagsArgs::Default()),
 	  gd(GestureDetector{
 		  .onClick = [&](GestureDetector::Event event) {
 			  if ((GestureDetector::getMousePos() - event.state.getDragStartPos()).length() > 5.f) return;
@@ -21,7 +21,11 @@ BoardView::Impl::Impl(const BoardView &args)
 			  gridPos.print();
 
 			  if (!board.contains({static_cast<int>(gridPos.x), static_cast<int>(gridPos.y)})) {
-				  board[{static_cast<int>(gridPos.x), static_cast<int>(gridPos.y)}] = BoardElement{.child = Box{.widget{.width = 20.f, .height = 20.f}}};
+				  board[{static_cast<int>(gridPos.x), static_cast<int>(gridPos.y)}] = BoardElement{
+					  .child = Box{
+						  .widget{.width = 20.f, .height = 20.f},
+					  },
+				  };
 				  this->reLayout();
 			  }
 		  },
@@ -44,9 +48,8 @@ void BoardView::Impl::onUpdate() {
 
 void BoardView::Impl::updateChildren() {
 	for (auto [key, val]: board) {
-		if (!val.child->state.parent) continue;
 		val.child->state.parent = this;
-		val.child->state.root = state.root;
+		val.child->state.root = *state.root;
 		val.child->update();
 	}
 }

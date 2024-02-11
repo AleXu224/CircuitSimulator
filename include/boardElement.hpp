@@ -7,6 +7,6 @@ struct BoardElement {
 		uint32_t height = 1;
 	};
 
-	Dimensions dimensions;
+	Dimensions dimensions{};
 	squi::Child child;
 };
