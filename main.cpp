@@ -6,5 +6,5 @@ int main(int, char**){
 
     Window window;
     window.addChild(BoardView{});
-    window.run();
+	window.run();
 }
