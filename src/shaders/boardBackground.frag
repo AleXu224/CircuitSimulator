@@ -14,8 +14,8 @@ void main() {
 	vec4 usedColor;
 	vec2 coords = fragUv * fragSize - fragOffset;
     float spaceBetween = 20.f;
-    if (multipleOf(coords, 100.f)) usedColor = vec4(0.5f, 0.5f, 0.5f, 1.f);
-	else if (multipleOf(coords, spaceBetween)) usedColor = vec4(0.25f, 0.25f, 0.25f, 1.f);
+    if (multipleOf(coords, 100.f)) usedColor = vec4(0.4f, 0.4f, 0.4f, 1.f);
+	else if (multipleOf(coords, spaceBetween)) usedColor = vec4(0.2f, 0.2f, 0.2f, 1.f);
 	else usedColor = vec4(0.15, 0.15, 0.15, 1.f);
 	outColor = vec4(usedColor.xyz * usedColor.a, usedColor.a);
 }
