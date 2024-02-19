@@ -1,7 +1,8 @@
 #include "window.hpp"
 #include "boardview.hpp"
+#include <print>
 
-int main(int, char**){
+int main(int /*unused*/, char** /*unused*/){
     using namespace squi;
 
     Window window;

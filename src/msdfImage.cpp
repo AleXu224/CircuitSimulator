@@ -1,6 +1,7 @@
 #include "msdfImage.hpp"
 #include "compiledShaders/msdfQuadfrag.hpp"
 #include "compiledShaders/msdfQuadvert.hpp"
+#include "vec2.hpp"
 #include "window.hpp"
 
 
@@ -9,7 +10,13 @@ using namespace squi;
 MsdfImage::Pipeline *MsdfImage::pipeline = nullptr;
 
 MsdfImage::Impl::Impl(const MsdfImage &args)
-	: Widget(args.widget, Widget::FlagsArgs::Default()), texture(args.texture), quad({.color = args.color}) {
+	: Widget(args.widget, Widget::FlagsArgs::Default()),
+	  texture(args.texture),
+	  quad({
+		  .color = args.color,
+		  .texUvTopLeft = args.uvTopLeft,
+		  .texUvBottomRight = args.uvBottomRight,
+	  }) {
 }
 
 void MsdfImage::Impl::postLayout(squi::vec2 &size) {
@@ -30,9 +37,19 @@ void MsdfImage::Impl::onDraw() {
 		});
 	}
 
-    if (!texture) return;
+	if (!texture) return;
 
 	pipeline->bindWithSampler(texture.value());
 	auto [vi, ii] = pipeline->getIndexes();
 	pipeline->addData(quad.getData(vi, ii));
+}
+
+void MsdfImage::Impl::setColor(const Color &newColor) {
+	quad.color = newColor;
+	reDraw();
+}
+
+void MsdfImage::Impl::setUv(const squi::vec2 &topLeft, const squi::vec2 &topRight, const squi::vec2 &bottomRight, const squi::vec2 &bottomLeft) {
+	quad.setTexUv(topLeft, topRight, bottomRight, bottomLeft);
+	reDraw();
 }

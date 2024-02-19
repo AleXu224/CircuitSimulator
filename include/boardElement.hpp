@@ -1,12 +1,28 @@
+#pragma once
+
+#include "component.hpp"
+#include "vec2.hpp"
 #include "widget.hpp"
-#include <cstdint>
+#include "coords.hpp"
 
 struct BoardElement {
-	struct Dimensions {
-		uint32_t width = 1;
-		uint32_t height = 1;
+	// Args
+	squi::Widget::Args widget{};
+	Coords position{
+		.x = 0,
+		.y = 0,
+	};
+	uint32_t rotation = 0;
+	const Component &component;
+
+	static void Rotate(squi::Widget &widget, uint32_t rotation, const Component &component);
+
+	struct Storage {
+		// Data
+		squi::vec2 dragStartPos{};
+		bool active = false;
+		const Component &component;
 	};
 
-	Dimensions dimensions{};
-	squi::Child child;
+	operator squi::Child() const;
 };

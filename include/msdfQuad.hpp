@@ -1,9 +1,10 @@
 #pragma once
+#include "getterSetter.hpp"
 #include "pipeline.hpp"
 #include "vulkanIncludes.hpp"
 #include <array>
 #include <cstddef>
-#include "getterSetter.hpp"
+
 
 
 namespace Engine {
@@ -13,8 +14,9 @@ namespace Engine {
 			alignas(8) glm::vec2 size;
 			alignas(8) glm::vec2 pos;
 			alignas(8) glm::vec2 uv;
+			alignas(8) glm::vec2 texUv;
 
-			static std::array<vk::VertexInputAttributeDescription, 4> describe() {
+			static std::array<vk::VertexInputAttributeDescription, 5> describe() {
 				using Desc = vk::VertexInputAttributeDescription;
 				return {
 					Desc{
@@ -41,6 +43,12 @@ namespace Engine {
 						.format = vk::Format::eR32G32Sfloat,
 						.offset = offsetof(Vertex, uv),
 					},
+					Desc{
+						.location = 4,
+						.binding = 0,
+						.format = vk::Format::eR32G32Sfloat,
+						.offset = offsetof(Vertex, texUv),
+					},
 				};
 			}
 		};
@@ -50,6 +58,8 @@ namespace Engine {
 			glm::vec4 color{1.f};
 			glm::vec2 position = {0, 0};
 			glm::vec2 size = {0, 0};
+			glm::vec2 texUvTopLeft = {0, 0};
+			glm::vec2 texUvBottomRight = {1, 1};
 		};
 
 	private:
@@ -57,7 +67,6 @@ namespace Engine {
 		std::array<uint16_t, 6> indices{};
 
 	public:
-
 		GetterSetter<glm::vec4, glm::vec4, glm::vec4, glm::vec4> color{
 			vertices[0].color,
 			vertices[1].color,
@@ -83,25 +92,36 @@ namespace Engine {
 				.size = args.size,
 				.pos = args.position,
 				.uv = {0, 0},
+				.texUv{args.texUvTopLeft.x, args.texUvTopLeft.y},
 			};
 			vertices[1] = {
 				.color = args.color,
 				.size = args.size,
 				.pos = args.position,
 				.uv = {1, 0},
+				.texUv{args.texUvBottomRight.x, args.texUvTopLeft.y},
 			};
 			vertices[2] = {
 				.color = args.color,
 				.size = args.size,
 				.pos = args.position,
 				.uv = {1, 1},
+				.texUv{args.texUvBottomRight.x, args.texUvBottomRight.y},
 			};
 			vertices[3] = {
 				.color = args.color,
 				.size = args.size,
 				.pos = args.position,
 				.uv = {0, 1},
+				.texUv{args.texUvTopLeft.x, args.texUvBottomRight.y},
 			};
+		}
+
+		void setTexUv(const squi::vec2 &topLeft, const squi::vec2 &topRight, const squi::vec2 &bottomRight, const squi::vec2 &bottomLeft) {
+			vertices[0].texUv = topLeft;
+			vertices[1].texUv = topRight;
+			vertices[2].texUv = bottomRight;
+			vertices[3].texUv = bottomLeft;
 		}
 
 		Pipeline<Vertex, true>::Data getData(size_t vi, size_t ii) {

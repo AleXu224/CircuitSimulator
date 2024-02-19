@@ -2,6 +2,7 @@
 
 layout(location = 0) in vec4 fragColor;
 layout(location = 1) in vec2 fragUv;
+layout(location = 2) in vec2 fragTexUv;
 
 layout(set = 1, binding = 0) uniform sampler2D tex;
 
@@ -13,7 +14,7 @@ float median(float r, float g, float b) {
 }
 
 void main() {
-	vec3 msd = texture(tex, fragUv).rgb;
+	vec3 msd = texture(tex, fragTexUv).rgb;
 
 	// vec3 msd = texture(msdf, texCoord).rgb;
 	float sd = median(msd.r, msd.g, msd.b) - 0.5;
