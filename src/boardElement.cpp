@@ -1,9 +1,15 @@
 #include "boardElement.hpp"
 #include "component.hpp"
-#include "gestureDetector.hpp"
+#include "coords.hpp"
 #include "element.hpp"
+#include "elementState.hpp"
+#include "gestureDetector.hpp"
 #include "msdfImage.hpp"
+#include "observer.hpp"
+#include "stateContainer.hpp"
 #include <GLFW/glfw3.h>
+#include <vector>
+
 
 using namespace squi;
 
@@ -12,12 +18,15 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 	vec2 newTopRight{};
 	vec2 newBottomRight{};
 	vec2 newBottomLeft{};
+	std::vector<Coords> newNodes{};
+	newNodes.reserve(component.nodes.size());
 	switch (rotation % 4) {
 		case 0: {
 			newTopLeft = {component.uvTopLeft.x, component.uvTopLeft.y};
 			newTopRight = {component.uvBottomRight.x, component.uvTopLeft.y};
 			newBottomRight = {component.uvBottomRight.x, component.uvBottomRight.y};
 			newBottomLeft = {component.uvTopLeft.x, component.uvBottomRight.y};
+			newNodes = component.nodes;
 			break;
 		}
 		case 1: {
@@ -25,6 +34,12 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 			newTopRight = {component.uvTopLeft.x, component.uvTopLeft.y};
 			newBottomRight = {component.uvBottomRight.x, component.uvTopLeft.y};
 			newBottomLeft = {component.uvBottomRight.x, component.uvBottomRight.y};
+			for (const auto &node : component.nodes) {
+				newNodes.emplace_back(Coords{
+					.x = static_cast<int>(component.height - node.y),
+					.y = node.x,
+				});
+			}
 			break;
 		}
 		case 2: {
@@ -32,6 +47,12 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 			newTopRight = {component.uvTopLeft.x, component.uvBottomRight.y};
 			newBottomRight = {component.uvTopLeft.x, component.uvTopLeft.y};
 			newBottomLeft = {component.uvBottomRight.x, component.uvTopLeft.y};
+			for (const auto &node : component.nodes) {
+				newNodes.emplace_back(Coords{
+					.x = static_cast<int>(component.width - node.x),
+					.y = static_cast<int>(component.height - node.y),
+				});
+			}
 			break;
 		}
 		case 3: {
@@ -39,19 +60,32 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 			newTopRight = {component.uvBottomRight.x, component.uvBottomRight.y};
 			newBottomRight = {component.uvTopLeft.x, component.uvBottomRight.y};
 			newBottomLeft = {component.uvTopLeft.x, component.uvTopLeft.y};
+			for (const auto &node: component.nodes) {
+				newNodes.emplace_back(Coords{
+					.x = node.y,
+					.y = static_cast<int>(component.width - node.x),
+				});
+			}
 			break;
 		}
 	}
 
 	auto &image = widget.as<MsdfImage::Impl>();
+	auto &element = widget.customState.get<Element>();
 
 	if (component.width != component.height) {
 		if (rotation % 2 == 0) {
 			image.state.width = static_cast<float>(component.width) * 20.f;
 			image.state.height = static_cast<float>(component.height) * 20.f;
+			element.size.x = static_cast<int>(component.width);
+			element.size.y = static_cast<int>(component.height);
+			element.nodes = newNodes;
 		} else {
 			image.state.width = static_cast<float>(component.height) * 20.f;
 			image.state.height = static_cast<float>(component.width) * 20.f;
+			element.size.y = static_cast<int>(component.width);
+			element.size.x = static_cast<int>(component.height);
+			element.nodes = newNodes;
 		}
 	}
 
@@ -61,25 +95,14 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 BoardElement::operator squi::Child() const {
 	auto storage = std::make_shared<Storage>(Storage{
 		.component = component,
+		.boardStorage = boardStorage,
 	});
 
 	return GestureDetector{
-		.onFocus = [storage](GestureDetector::Event /*event*/) {
-			storage->dragStartPos = GestureDetector::getMousePos();
-		},
-		.onInactive = [storage](GestureDetector::Event event) {
-			event.widget.as<MsdfImage::Impl>().setColor(0xFFFFFFFF);
-			storage->active = false;
-		},
-		.onClick = [storage](GestureDetector::Event event) {
-			if ((storage->dragStartPos - GestureDetector::getMousePos()).length() > 5.f) return;
-			event.widget.as<MsdfImage::Impl>().setColor(0xAAAAFFFF);
-			storage->active = true;
-		},
 		.onUpdate = [storage](GestureDetector::Event event) {
-			if (storage->active) {
+			if (storage->selected) {
 				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_DELETE)) event.widget.deleteLater();
-				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) event.state.setInactive();
+				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) event.widget.customState.get<StateObservable>()->notify(ElementState::unselected);
 			}
 		},
 		.child = MsdfImage{
@@ -96,11 +119,49 @@ BoardElement::operator squi::Child() const {
 						.rotation = rotation,
 					},
 				},
-				.onInit = [storage = storage](Widget &w){
+				.onInit = [storage = storage](Widget &w) {
 					auto &element = w.customState.get<Element>();
 					BoardElement::Rotate(w, element.rotation, storage->component);
+					w.customState.add(StateContainer{squi::Observable<ElementState>::create()});
+
+					w.customState.add(
+						w.customState.get<StateObservable>()->observe(
+							[storage = storage, widget = w.weak_from_this(), obs = w.customState.get<StateObservable>()->weak_from_this()](const ElementState &state) {
+								if (widget.expired()) return;
+								auto &img = widget.lock()->as<MsdfImage::Impl>();
+								switch (state) {
+									case ElementState::placed: {
+										img.setColor(0xFFFFFFFF);
+										storage->placed = true;
+										storage->boardStorage.placeElement(widget);
+										return;
+									}
+									case ElementState::placing: {
+										img.setColor(squi::Color{1.f, 1.f, 1.f, 0.5f});
+										return;
+									}
+									case ElementState::selected: {
+										img.setColor(0xAAAAFFFF);
+										storage->selected = true;
+										return;
+									}
+									case ElementState::unselected: {
+										storage->selected = false;
+										img.setColor(0xFFFFFFFF);
+										return;
+									}
+									case ElementState::removed: {
+										if (storage->placed) {
+											storage->boardStorage.removeElement(widget);
+										}
+										return;
+									}
+								}
+							}
+						)
+					);
 				},
-				.onArrange = [](Widget & w, auto &pos) {
+				.onArrange = [](Widget &w, auto &pos) {
 					auto &elemPos = w.customState.get<Element>().pos;
 
 					pos += vec2(static_cast<float>(elemPos.x), static_cast<float>(elemPos.y)) * 20.f;

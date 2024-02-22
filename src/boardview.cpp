@@ -1,13 +1,14 @@
 #include "boardview.hpp"
 #include "boardElement.hpp"
+#include "boardLine.hpp"
 #include "column.hpp"
 #include "compiledShaders/boardBackgroundfrag.hpp"
 #include "compiledShaders/boardBackgroundvert.hpp"
 #include "component.hpp"
 #include "components/componentStore.hpp"
+#include "elementState.hpp"
 #include "gestureDetector.hpp"
 #include "image.hpp"
-#include "msdfImage.hpp"
 #include "samplerUniform.hpp"
 #include "topBar.hpp"
 #include "vec2.hpp"
@@ -15,6 +16,7 @@
 #include "window.hpp"
 #include <GLFW/glfw3.h>
 #include <cstddef>
+#include <cstdlib>
 #include <optional>
 #include <print>
 
@@ -26,27 +28,38 @@ BoardView::Impl::Impl(const BoardView &args)
 	: Widget(args.widget, Widget::FlagsArgs::Default()),
 	  gd(GestureDetector{
 		  .onClick = [&](GestureDetector::Event event) {
-			  if (!selectedComponent.has_value()) return;
-			  if (!selectedComponentWidget.has_value()) return;
 			  if ((GestureDetector::getMousePos() - event.state.getDragStartPos()).length() > 5.f) return;
-			  auto &componentWidget = selectedComponentWidget.value();
-			  auto &elem = componentWidget->customState.get<Element>();
-			  if (boardStorage.isElementOverlapping(elem)) return;
-			  componentWidget->flags.isInteractive = true;
-			  componentWidget->as<MsdfImage::Impl>().setColor(0xFFFFFFFF);
 
-			  boardStorage.placeElement(componentWidget->weak_from_this());
+			  if (selectedLineWidget.has_value()) {
+				  auto &w = selectedLineWidget.value();
+				  w->customState.get<StateObservable>()->notify(ElementState::placed);
+				  Child child = BoardLine{
+					  .boardStorage = boardStorage,
+					  .startPos = w->customState.get<BoardLine::Storage>().endPos,
+				  };
+				  addChild(child);
+				  child->customState.get<StateObservable>()->notify(ElementState::placing);
+				  selectedLineWidget = child;
+			  } else if (selectedComponent.has_value() && selectedComponentWidget.has_value()) {
+				  auto &componentWidget = selectedComponentWidget.value();
+				  auto &elem = componentWidget->customState.get<Element>();
+				  if (boardStorage.isElementOverlapping(elem)) return;
+				  componentWidget->customState.get<StateObservable>()->notify(ElementState::placed);
 
-			  auto &comp = selectedComponent.value();
+				  auto &comp = selectedComponent.value();
 
-			  squi::Child child = BoardElement{
-				  .rotation = elem.rotation,
-				  .component = comp.get(),
-			  };
-			  child->flags.isInteractive = false;
-			  addChild(child);
-			  selectedComponent = comp.get();
-			  selectedComponentWidget = child;
+				  squi::Child child = BoardElement{
+					  .rotation = elem.rotation,
+					  .component = comp.get(),
+					  .boardStorage = boardStorage,
+				  };
+				  addChild(child);
+				  child->customState.get<StateObservable>()->notify(ElementState::placing);
+				  selectedComponent = comp.get();
+				  selectedComponentWidget = child;
+			  } else {
+				  clickElement(event);
+			  }
 		  },
 	  }
 			 .mount(*this)),
@@ -63,16 +76,16 @@ BoardView::Impl::Impl(const BoardView &args)
 
 		  squi::Child child = BoardElement{
 			  .component = comp.get(),
+			  .boardStorage = boardStorage,
 		  };
-		  child->flags.isInteractive = false;
 		  addChild(child);
+		  child->customState.get<StateObservable>()->notify(ElementState::placing);
 		  selectedComponent = comp.get();
 		  selectedComponentWidget = child;
 	  })) {
 	funcs().onChildAdded.emplace_back([](Widget &, const Child &) {});
 	funcs().onChildRemoved.emplace_back([&](Widget &, const Child &child) {
-		auto &elem = child->customState.get<Element>();
-		boardStorage.removeElement(elem);
+		child->customState.get<StateObservable>()->notify(ElementState::removed);
 	});
 }
 
@@ -110,11 +123,8 @@ void BoardView::Impl::onUpdate() {
 		loadedComponents = true;
 	}
 
-	static bool first = true;
 	if (gd.focused) {
-		if (!first) {
-			first = true;
-		} else if (GestureDetector::getMouseDelta().length() != 0.f) {
+		if (GestureDetector::getMouseDelta().length() != 0.f) {
 			viewOffset += GestureDetector::getMouseDelta();
 			quad.offset = viewOffset;
 			this->reArrange();
@@ -126,6 +136,11 @@ void BoardView::Impl::onUpdate() {
 			selectedComponentWidget.value()->deleteLater();
 			selectedComponentWidget.reset();
 		}
+		if (selectedLineWidget.has_value()) {
+			selectedLineWidget.value()->deleteLater();
+			selectedLineWidget.reset();
+		}
+		unselectAll();
 	}
 
 	if (selectedComponentWidget.has_value()) {
@@ -146,9 +161,8 @@ void BoardView::Impl::onUpdate() {
 		const auto virtualPos = mousePos - widgetPos - viewOffset;
 
 		auto gridPos = virtualPos / gridWidth;
-		auto elemSize = element.getSize();
-		gridPos.x = std::round(gridPos.x - (static_cast<float>(elemSize.x) / 2.f));
-		gridPos.y = std::round(gridPos.y - (static_cast<float>(elemSize.y) / 2.f));
+		gridPos.x = std::round(gridPos.x - (static_cast<float>(element.size.x) / 2.f));
+		gridPos.y = std::round(gridPos.y - (static_cast<float>(element.size.y) / 2.f));
 		auto newCoords = Coords{
 			.x = static_cast<int32_t>(gridPos.x),
 			.y = static_cast<int32_t>(gridPos.y),
@@ -157,6 +171,23 @@ void BoardView::Impl::onUpdate() {
 		if (elem.pos != newCoords) {
 			elem.pos = newCoords;
 			this->reArrange();
+		}
+	}
+
+	if (selectedLineWidget.has_value()) {
+		auto &storage = selectedLineWidget.value()->customState.get<BoardLine::Storage>();
+
+		auto gridPos = coordsToGridRounded(GestureDetector::getMousePos());
+		if (std::abs(storage.startPos->x - gridPos.x) < std::abs(storage.startPos->y - gridPos.y)) {
+			storage.endPos = Coords{
+				.x = storage.startPos->x,
+				.y = gridPos.y,
+			};
+		} else {
+			storage.endPos = Coords{
+				.x = gridPos.x,
+				.y = storage.startPos->y,
+			};
 		}
 	}
 }
@@ -185,12 +216,28 @@ void BoardView::Impl::onDraw() {
 
 void BoardView::Impl::updateChildren() {
 	Widget::updateChildren();
+	for (auto &nodeIt: boardStorage.nodes) {
+		auto &widget = nodeIt.second.first;
+		if (nodeIt.second.second.empty()) continue;
+		if (!widget) continue;
+
+		widget->state.parent = this;
+		widget->state.root = state.root;
+		widget->update();
+	}
 }
 
 squi::vec2 BoardView::Impl::layoutChildren(squi::vec2 /*maxSize*/, squi::vec2 /*minSize*/, ShouldShrink /*shouldShrink*/) {
 	for (auto &child: getChildren()) {
 		if (!child) continue;
 		child->layout(vec2::infinity(), vec2{}, {false, false});
+	}
+	for (auto &nodeIt: boardStorage.nodes) {
+		auto &widget = nodeIt.second.first;
+		if (nodeIt.second.second.empty()) continue;
+		if (!widget) continue;
+
+		widget->layout(vec2::infinity(), {}, {false, false});
 	}
 	return {};
 }
@@ -201,6 +248,13 @@ void BoardView::Impl::arrangeChildren(squi::vec2 &pos) {
 		if (!child) continue;
 		child->arrange(newPos);
 	}
+	for (auto &nodeIt: boardStorage.nodes) {
+		auto &widget = nodeIt.second.first;
+		if (nodeIt.second.second.empty()) continue;
+		if (!widget) continue;
+
+		widget->arrange(newPos);
+	}
 }
 
 void BoardView::Impl::drawChildren() {
@@ -210,7 +264,83 @@ void BoardView::Impl::drawChildren() {
 		if (!child) continue;
 		child->draw();
 	}
+	for (auto &nodeIt: boardStorage.nodes) {
+		auto &widget = nodeIt.second.first;
+		if (nodeIt.second.second.empty()) continue;
+		if (!widget) continue;
+
+		widget->draw();
+	}
 	instance.popScissor();
+}
+
+void BoardView::Impl::clickElement(squi::GestureDetector::Event /*event*/) {
+	if (
+		auto itNode = boardStorage.nodes.find(coordsToGridRounded(GestureDetector::getMousePos()));
+		itNode != boardStorage.nodes.end() && !itNode->second.second.empty()
+	) {
+		selectedLineWidget = BoardLine{
+			.boardStorage = boardStorage,
+			.startPos = coordsToGridRounded(GestureDetector::getMousePos()),
+		};
+		addChild(selectedLineWidget.value());
+		selectedLineWidget.value()->customState.get<StateObservable>()->notify(ElementState::placing);
+	} else if (
+		auto itLine = boardStorage.lines.find(coordsToGridRounded(GestureDetector::getMousePos()));
+		itLine != boardStorage.lines.end() && !itLine->second.empty()
+	) {
+		for (auto &widget: itLine->second) {
+			if (widget.expired()) continue;
+			widget.lock()->customState.get<StateObservable>()->notify(ElementState::selected);
+			selectedWidgets.emplace_back(widget);
+		}
+	} else if (
+		auto itBoard = boardStorage.board.find(coordsToGridFloored(GestureDetector::getMousePos()));
+		itBoard != boardStorage.board.end()
+	) {
+		if (itBoard->second.expired()) return;
+		auto widget = itBoard->second.lock();
+		widget->customState.get<StateObservable>()->notify(ElementState::selected);
+		// FIXME: widgets can be added multiple times
+		selectedWidgets.emplace_back(widget);
+	} else {
+		unselectAll();
+	}
+}
+
+Coords BoardView::Impl::coordsToGridRounded(const squi::vec2 &input) const {
+	const auto widgetPos = getPos();
+	const auto virtualPos = input - widgetPos - viewOffset;
+
+	auto gridPos = virtualPos / gridWidth;
+	gridPos.x = std::round(gridPos.x);
+	gridPos.y = std::round(gridPos.y);
+	return Coords{
+		.x = static_cast<int32_t>(gridPos.x),
+		.y = static_cast<int32_t>(gridPos.y),
+	};
+}
+
+Coords BoardView::Impl::coordsToGridFloored(const squi::vec2 &input) const {
+	const auto widgetPos = getPos();
+	const auto virtualPos = input - widgetPos - viewOffset;
+
+	auto gridPos = virtualPos / gridWidth;
+	gridPos.x = std::floor(gridPos.x);
+	gridPos.y = std::floor(gridPos.y);
+	return Coords{
+		.x = static_cast<int32_t>(gridPos.x),
+		.y = static_cast<int32_t>(gridPos.y),
+	};
+}
+
+void BoardView::Impl::unselectAll() {
+	for (auto &w: selectedWidgets) {
+		if (w.expired()) continue;
+		auto widget = w.lock();
+		widget->customState.get<StateObservable>()->notify(ElementState::unselected);
+	}
+	selectedWidgets.clear();
 }
 
 BoardView::Impl::~Impl() {

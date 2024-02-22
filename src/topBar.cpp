@@ -32,6 +32,7 @@ TopBar::operator squi::Child() const {
 			.children = std::invoke([&storage] {
 				Children ret{};
 				for (const auto &comp: ComponentStore::components) {
+					if (comp.get().hidden) continue;
 					auto maxSize = std::max(comp.get().width, comp.get().height);
 					auto width = (static_cast<float>(comp.get().width) / static_cast<float>(maxSize)) * 40.f;
 					auto height = (static_cast<float>(comp.get().height) / static_cast<float>(maxSize)) * 40.f;

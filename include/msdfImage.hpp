@@ -1,3 +1,5 @@
+#pragma once
+
 #include "color.hpp"
 #include "msdfQuad.hpp"
 #include "pipeline.hpp"
@@ -8,7 +10,7 @@
 
 struct MsdfImage {
 	// Args
-	squi::Widget::Args widget;
+	squi::Widget::Args widget{};
 	const std::optional<Engine::SamplerUniform> &texture;
 	squi::Color color{1.f, 1.f, 1.f, 1.f};
 	glm::vec2 uvTopLeft{0, 0};

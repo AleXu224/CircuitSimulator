@@ -9,6 +9,10 @@ struct Coords {
 	bool operator==(const Coords &other) const {
 		return x == other.x && y == other.y;
 	}
+
+	[[nodiscard]] Coords operator+(const Coords &other) const {
+		return {x + other.x, y + other.y};
+	}
 };
 
 namespace std {

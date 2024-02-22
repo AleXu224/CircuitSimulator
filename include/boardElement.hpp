@@ -1,5 +1,6 @@
 #pragma once
 
+#include "boardStorage.hpp"
 #include "component.hpp"
 #include "vec2.hpp"
 #include "widget.hpp"
@@ -14,14 +15,17 @@ struct BoardElement {
 	};
 	uint32_t rotation = 0;
 	const Component &component;
+	BoardStorage &boardStorage;
 
 	static void Rotate(squi::Widget &widget, uint32_t rotation, const Component &component);
 
 	struct Storage {
 		// Data
 		squi::vec2 dragStartPos{};
-		bool active = false;
+		bool selected = false;
+		bool placed = false;
 		const Component &component;
+		BoardStorage &boardStorage;
 	};
 
 	operator squi::Child() const;

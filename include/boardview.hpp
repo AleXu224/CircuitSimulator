@@ -6,6 +6,7 @@
 #include "gestureDetector.hpp"
 #include "observer.hpp"
 #include "pipeline.hpp"
+#include "vec2.hpp"
 #include "widget.hpp"
 #include <functional>
 #include <optional>
@@ -34,6 +35,8 @@ struct BoardView {
 		std::shared_ptr<ComponentObservable::Observer> observer;
 		std::optional<std::reference_wrapper<const Component>> selectedComponent{};
 		std::optional<squi::Child> selectedComponentWidget{};
+		std::optional<squi::Child> selectedLineWidget{};
+		std::vector<squi::ChildRef> selectedWidgets{};
 		static constexpr float gridWidth = 20.f;
 
 		void onUpdate() override;
@@ -45,6 +48,11 @@ struct BoardView {
 		squi::vec2 layoutChildren(squi::vec2 maxSize, squi::vec2 minSize, ShouldShrink shouldShrink) override;
 		void arrangeChildren(squi::vec2 &pos) override;
 		void drawChildren() override;
+
+		void clickElement(squi::GestureDetector::Event);
+		Coords coordsToGridRounded(const squi::vec2&) const;
+		Coords coordsToGridFloored(const squi::vec2&) const;
+		void unselectAll();
 
 	public:
 		Impl(const BoardView &args);
