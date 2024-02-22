@@ -6,6 +6,6 @@ static const Component node{
 	.name = "Node",
 	.width = 1,
 	.height = 1,
-	.texturePath = R"(C:\Users\Squizell\Desktop\CircuitSimulatorAssets\node.png)",
+	.texturePath = R"(..\assets\node.png)",
 	.hidden = true,
 };

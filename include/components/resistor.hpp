@@ -16,5 +16,5 @@ static const Component resistor{
 			.y = 4,
 		},
 	},
-	.texturePath = R"(C:\Users\Squizell\Desktop\CircuitSimulatorAssets\resistor.png)",
+	.texturePath = R"(..\assets\resistor.png)",
 };

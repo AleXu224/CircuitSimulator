@@ -16,7 +16,7 @@ static const Component voltageSource{
 			.y = 4,
 		},
 	},
-	.texturePath = R"(C:\Users\Squizell\Desktop\CircuitSimulatorAssets\voltageSource.png)",
+	.texturePath = R"(..\assets\voltageSource.png)",
 	.uvTopLeft{0.25, 0},
 	.uvBottomRight{0.75, 1},
 };
