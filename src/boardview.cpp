@@ -94,29 +94,57 @@ void BoardView::Impl::onUpdate() {
 	if (!loadedComponents) {
 		for (const auto &comp: ComponentStore::components) {
 			auto job = std::thread([&comp, &instance = Window::of(this).engine.instance] {
-				auto data = Image::Data::fromFile(comp.get().texturePath);
+				{
+					auto data = Image::Data::fromFile(comp.get().texturePath);
 
-				auto &sampler = const_cast<std::optional<Engine::SamplerUniform> &>(comp.get().texture).emplace(Engine::SamplerUniform::Args{
-					.instance = instance,
-					.textureArgs{
+					auto &sampler = const_cast<std::optional<Engine::SamplerUniform> &>(comp.get().texture).emplace(Engine::SamplerUniform::Args{
 						.instance = instance,
-						.width = static_cast<uint32_t>(data.width),
-						.height = static_cast<uint32_t>(data.height),
-						.channels = static_cast<uint32_t>(data.channels),
-					},
-				});
+						.textureArgs{
+							.instance = instance,
+							.width = static_cast<uint32_t>(data.width),
+							.height = static_cast<uint32_t>(data.height),
+							.channels = static_cast<uint32_t>(data.channels),
+						},
+					});
 
-				auto layout = sampler.texture.image.getSubresourceLayout(vk::ImageSubresource{
-					.aspectMask = vk::ImageAspectFlagBits::eColor,
-					.mipLevel = 0,
-					.arrayLayer = 0,
-				});
-				for (int row = 0; row < data.height; row++) {
-					memcpy(
-						reinterpret_cast<uint8_t *>(sampler.texture.mappedMemory) + row * layout.rowPitch,
-						data.data.data() + static_cast<ptrdiff_t>(row * data.width * data.channels),
-						static_cast<size_t>(data.width) * data.channels
-					);
+					auto layout = sampler.texture.image.getSubresourceLayout(vk::ImageSubresource{
+						.aspectMask = vk::ImageAspectFlagBits::eColor,
+						.mipLevel = 0,
+						.arrayLayer = 0,
+					});
+					for (int row = 0; row < data.height; row++) {
+						memcpy(
+							reinterpret_cast<uint8_t *>(sampler.texture.mappedMemory) + row * layout.rowPitch,
+							data.data.data() + static_cast<ptrdiff_t>(row * data.width * data.channels),
+							static_cast<size_t>(data.width) * data.channels
+						);
+					}
+				}
+				{
+					auto data = Image::Data::fromFile(comp.get().textureThumbPath);
+
+					auto &sampler = const_cast<std::optional<Engine::SamplerUniform> &>(comp.get().textureThumb).emplace(Engine::SamplerUniform::Args{
+						.instance = instance,
+						.textureArgs{
+							.instance = instance,
+							.width = static_cast<uint32_t>(data.width),
+							.height = static_cast<uint32_t>(data.height),
+							.channels = static_cast<uint32_t>(data.channels),
+						},
+					});
+
+					auto layout = sampler.texture.image.getSubresourceLayout(vk::ImageSubresource{
+						.aspectMask = vk::ImageAspectFlagBits::eColor,
+						.mipLevel = 0,
+						.arrayLayer = 0,
+					});
+					for (int row = 0; row < data.height; row++) {
+						memcpy(
+							reinterpret_cast<uint8_t *>(sampler.texture.mappedMemory) + row * layout.rowPitch,
+							data.data.data() + static_cast<ptrdiff_t>(row * data.width * data.channels),
+							static_cast<size_t>(data.width) * data.channels
+						);
+					}
 				}
 			});
 			job.detach();
@@ -128,7 +156,7 @@ void BoardView::Impl::onUpdate() {
 		if (GestureDetector::isKey(GLFW_MOUSE_BUTTON_1, GLFW_RELEASE, GLFW_MOD_CONTROL) ||
 			GestureDetector::isKey(GLFW_KEY_LEFT_CONTROL, GLFW_RELEASE) ||
 			GestureDetector::isKey(GLFW_KEY_RIGHT_CONTROL, GLFW_RELEASE)) {
-			
+
 			auto &storage = selectionWidget.value()->customState.get<BoardSelection::Storage>();
 			Coords minPos{
 				std::min(storage.startPos->x, storage.endPos->x),
@@ -394,6 +422,7 @@ void BoardView::Impl::unselectAll() {
 BoardView::Impl::~Impl() {
 	for (const auto &comp: ComponentStore::components) {
 		const_cast<std::optional<Engine::SamplerUniform> &>(comp.get().texture).reset();
+		const_cast<std::optional<Engine::SamplerUniform> &>(comp.get().textureThumb).reset();
 	}
 }
 

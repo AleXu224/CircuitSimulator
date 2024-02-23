@@ -6,7 +6,6 @@
 #include "gestureDetector.hpp"
 #include "msdfImage.hpp"
 #include "row.hpp"
-#include <algorithm>
 #include <functional>
 
 
@@ -33,9 +32,6 @@ TopBar::operator squi::Child() const {
 				Children ret{};
 				for (const auto &comp: ComponentStore::components) {
 					if (comp.get().hidden) continue;
-					auto maxSize = std::max(comp.get().width, comp.get().height);
-					auto width = (static_cast<float>(comp.get().width) / static_cast<float>(maxSize)) * 40.f;
-					auto height = (static_cast<float>(comp.get().height) / static_cast<float>(maxSize)) * 40.f;
 					ret.emplace_back(Button{
 						.widget{
 							.width = 48.f,
@@ -50,13 +46,11 @@ TopBar::operator squi::Child() const {
 						.child = Align{
 							.child = MsdfImage{
 								.widget{
-									.width{width},
-									.height{height},
+									.width{40.f},
+									.height{40.f},
 								},
-								.texture = comp.get().texture,
+								.texture = comp.get().textureThumb,
 								.color{0xFFFFFFFF},
-								.uvTopLeft{comp.get().uvTopLeft},
-								.uvBottomRight{comp.get().uvBottomRight},
 							},
 						},
 					});

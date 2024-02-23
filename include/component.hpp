@@ -12,7 +12,9 @@ struct Component{
     uint32_t height;
     std::vector<Coords> nodes{};
     std::string texturePath;
+    std::string textureThumbPath;
     std::optional<Engine::SamplerUniform> texture{};
+    std::optional<Engine::SamplerUniform> textureThumb{};
 	squi::vec2 uvTopLeft{0, 0};
 	squi::vec2 uvBottomRight{1, 1};
     bool hidden = false;

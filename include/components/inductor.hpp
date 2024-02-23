@@ -17,4 +17,5 @@ static const Component inductor{
 		},
 	},
 	.texturePath = R"(..\assets\inductor.png)",
+	.textureThumbPath = R"(..\assets\inductorThumb.png)",
 };

@@ -91,6 +91,7 @@ struct BoardStorage {
 		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.y : maxCoords.y - minCoords.y;
 		const auto initialVal = std::invoke(modifiedVal, minCoords);
 
+		// FIXME: crash here because of a negative distance
 		for (auto i: std::views::iota(0, distance)) {
 			std::invoke(modifiedVal, minCoords) = initialVal + i;
 			std::erase_if(lines[minCoords], [&](auto &val) -> bool {

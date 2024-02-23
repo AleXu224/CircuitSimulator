@@ -17,4 +17,5 @@ static const Component capacitor{
 		},
 	},
 	.texturePath = R"(..\assets\capacitor.png)",
+	.textureThumbPath = R"(..\assets\capacitorThumb.png)",
 };
