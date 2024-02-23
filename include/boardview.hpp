@@ -36,6 +36,7 @@ struct BoardView {
 		std::optional<std::reference_wrapper<const Component>> selectedComponent{};
 		std::optional<squi::Child> selectedComponentWidget{};
 		std::optional<squi::Child> selectedLineWidget{};
+		std::optional<squi::Child> selectionWidget{};
 		std::vector<squi::ChildRef> selectedWidgets{};
 		static constexpr float gridWidth = 20.f;
 

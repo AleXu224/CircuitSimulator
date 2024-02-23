@@ -1,6 +1,7 @@
 #include "boardview.hpp"
 #include "boardElement.hpp"
 #include "boardLine.hpp"
+#include "boardSelection.hpp"
 #include "column.hpp"
 #include "compiledShaders/boardBackgroundfrag.hpp"
 #include "compiledShaders/boardBackgroundvert.hpp"
@@ -121,6 +122,53 @@ void BoardView::Impl::onUpdate() {
 			job.detach();
 		}
 		loadedComponents = true;
+	}
+
+	if (selectionWidget.has_value()) {
+		if (GestureDetector::isKey(GLFW_MOUSE_BUTTON_1, GLFW_RELEASE, GLFW_MOD_CONTROL) ||
+			GestureDetector::isKey(GLFW_KEY_LEFT_CONTROL, GLFW_RELEASE) ||
+			GestureDetector::isKey(GLFW_KEY_RIGHT_CONTROL, GLFW_RELEASE)) {
+			
+			auto &storage = selectionWidget.value()->customState.get<BoardSelection::Storage>();
+			Coords minPos{
+				std::min(storage.startPos->x, storage.endPos->x),
+				std::min(storage.startPos->y, storage.endPos->y),
+			};
+			Coords maxPos{
+				std::max(storage.startPos->x, storage.endPos->x),
+				std::max(storage.startPos->y, storage.endPos->y),
+			};
+			for (auto x = minPos.x; x < maxPos.x; x++) {
+				for (auto y = minPos.y; y < maxPos.y; y++) {
+					if (auto it = boardStorage.board.find(Coords{x, y}); it != boardStorage.board.end()) {
+						if (it->second.expired()) continue;
+						selectedWidgets.emplace_back(it->second);
+						it->second.lock()->customState.get<StateObservable>()->notify(ElementState::selected);
+					}
+					if (auto it = boardStorage.lines.find(Coords{x, y}); it != boardStorage.lines.end()) {
+						for (auto &line: it->second) {
+							if (line.expired()) continue;
+							selectedWidgets.emplace_back(line);
+							line.lock()->customState.get<StateObservable>()->notify(ElementState::selected);
+						}
+					}
+				}
+			}
+
+			selectionWidget.value()->deleteLater();
+			selectionWidget.reset();
+		} else {
+			selectionWidget.value()->customState.get<BoardSelection::Storage>().endPos = coordsToGridRounded(GestureDetector::getMousePos());
+		}
+	}
+
+	if (GestureDetector::canClick(*this)) {
+		if (GestureDetector::isKey(GLFW_MOUSE_BUTTON_1, GLFW_PRESS, GLFW_MOD_CONTROL)) {
+			selectionWidget = BoardSelection{
+				.startPos = coordsToGridRounded(GestureDetector::getMousePos()),
+			};
+			addChild(selectionWidget.value());
+		}
 	}
 
 	if (gd.focused) {
