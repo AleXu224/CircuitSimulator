@@ -16,6 +16,6 @@ static const Component resistor{
 			.y = 4,
 		},
 	},
-	.texturePath = R"(..\assets\resistor.png)",
-	.textureThumbPath = R"(..\assets\resistorThumb.png)",
+	.texturePath = R"(.\assets\resistor.png)",
+	.textureThumbPath = R"(.\assets\resistorThumb.png)",
 };

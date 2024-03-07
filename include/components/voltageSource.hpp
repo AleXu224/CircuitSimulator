@@ -16,8 +16,8 @@ static const Component voltageSource{
 			.y = 4,
 		},
 	},
-	.texturePath = R"(..\assets\voltageSource.png)",
-	.textureThumbPath = R"(..\assets\voltageSourceThumb.png)",
+	.texturePath = R"(.\assets\voltageSource.png)",
+	.textureThumbPath = R"(.\assets\voltageSourceThumb.png)",
 	.uvTopLeft{0.25, 0},
 	.uvBottomRight{0.75, 1},
 };
