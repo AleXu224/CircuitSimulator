@@ -39,7 +39,7 @@ BoardLine::operator squi::Child() const {
 					w.customState.add(Storage{
 						.boardStorage = boardStorage,
 						.startPos{
-							[&w](const auto &) {
+							[](Widget &w, const auto &) {
 								if (w.customState.get<Storage>().placed) throw std::runtime_error("Cannot replace line while it is placed!");
 								handlePosChange(w);
 							},
@@ -47,7 +47,7 @@ BoardLine::operator squi::Child() const {
 							startPos,
 						},
 						.endPos{
-							[&w](const auto &) {
+							[](Widget &w, const auto &) {
 								if (w.customState.get<Storage>().placed) throw std::runtime_error("Cannot replace line while it is placed!");
 								handlePosChange(w);
 							},

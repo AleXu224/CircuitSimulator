@@ -1,0 +1,17 @@
+{
+  "name": "glt",
+  "version-string": "0.1",
+  "dependencies": [
+    "glfw3",
+    "freetype",
+    {
+        "name": "asio",
+        "features": ["openssl"]
+    },
+    "openssl",
+    "skyr-url",
+    "gtest",
+    "utfcpp",
+    "glm"
+  ]
+}

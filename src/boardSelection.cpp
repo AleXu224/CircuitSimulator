@@ -30,10 +30,10 @@ BoardSelection::operator squi::Child() const {
 			.height = 0.f,
 			.onInit = [startPos = startPos](Widget &w) {
 				w.customState.add(Storage{
-					.startPos{[&w](const Coords &) {
+					.startPos{[](Widget &w, const Coords &) {
                         handlePosChange(w);
                     }, &w, startPos},
-					.endPos{[&w](const Coords &) {
+					.endPos{[](Widget &w, const Coords &) {
                         handlePosChange(w);
                     }, &w, startPos},
 				});
