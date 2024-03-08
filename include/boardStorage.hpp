@@ -88,7 +88,7 @@ struct BoardStorage {
 			std::max(storage.startPos->x, storage.endPos->x),
 			std::max(storage.startPos->y, storage.endPos->y),
 		};
-		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.y : maxCoords.y - minCoords.y;
+		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.x : maxCoords.y - minCoords.y;
 		const auto initialVal = std::invoke(modifiedVal, minCoords);
 
 		// FIXME: crash here because of a negative distance
