@@ -33,7 +33,15 @@ BoardView::Impl::Impl(const BoardView &args)
 
 			  if (selectedLineWidget.has_value()) {
 				  auto &w = selectedLineWidget.value();
+				  bool continuePlacing = true;
+				  if (auto it = boardStorage.nodes.find(coordsToGridRounded(GestureDetector::getMousePos())); it != boardStorage.nodes.end()) {
+					  if (!it->second.second.empty()) continuePlacing = false;
+				  }
 				  w->customState.get<StateObservable>()->notify(ElementState::placed);
+				  if (!continuePlacing) {
+					selectedLineWidget.reset();
+					return;
+				  }
 				  Child child = BoardLine{
 					  .boardStorage = boardStorage,
 					  .startPos = w->customState.get<BoardLine::Storage>().endPos,
