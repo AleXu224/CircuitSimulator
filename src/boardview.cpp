@@ -206,7 +206,7 @@ void BoardView::Impl::onUpdate() {
 			this->reArrange();
 		}
 	}
-	if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) {
+	if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE) || GestureDetector::isKeyPressedOrRepeat(GLFW_MOUSE_BUTTON_2)) {
 		selectedComponent.reset();
 		if (selectedComponentWidget.has_value()) {
 			selectedComponentWidget.value()->deleteLater();
