@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.21)
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/glt/vcpkg")
 set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
+set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
 project(CircuitSimulator VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
 # set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
@@ -35,5 +36,9 @@ add_executable(CircuitSimulator main.cpp ${all_files})
 add_dependencies(CircuitSimulator Assets)
 target_include_directories(CircuitSimulator PRIVATE include)
 
-
 target_link_libraries(CircuitSimulator PRIVATE glt)
+install(TARGETS CircuitSimulator DESTINATION .)
+install(DIRECTORY "${PROJECT_BINARY_DIR}/assets" DESTINATION .)
+
+set(CPACK_GENERATOR "ZIP;NSIS")
+include(CPack)
