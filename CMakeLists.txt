@@ -11,7 +11,7 @@ if (MSVC)
     add_compile_definitions(_DISABLE_STRING_ANNOTATION _DISABLE_VECTOR_ANNOTATION)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /O2")
 else()
-    add_compile_options(-Wall -Wextra -Wno-unused-parameter -Werror)
+    add_compile_options(-Wall -Wextra -Wno-unused-parameter -Wno-c++11-narrowing -Werror)
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} -O3 -ferror-limit=0")
 endif()
 
