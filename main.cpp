@@ -1,11 +1,10 @@
-#include "window.hpp"
 #include "boardview.hpp"
-#include <print>
+#include "window.hpp"
 
-int main(int /*unused*/, char** /*unused*/){
-    using namespace squi;
+int main(int /*unused*/, char ** /*unused*/) {
+	using namespace squi;
 
-    Window window;
-    window.addChild(BoardView{});
+	Window window{};
+	window.addChild(BoardView{});
 	window.run();
 }
