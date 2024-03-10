@@ -35,6 +35,7 @@ add_executable(CircuitSimulator main.cpp ${all_files})
 add_dependencies(CircuitSimulator Assets)
 target_include_directories(CircuitSimulator PRIVATE include)
 
+add_dependencies(CircuitSimulator glt)
 target_link_libraries(CircuitSimulator PRIVATE glt)
 install(TARGETS CircuitSimulator DESTINATION .)
 install(DIRECTORY "${PROJECT_BINARY_DIR}/assets" DESTINATION .)
