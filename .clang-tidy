@@ -32,7 +32,8 @@ Checks: "clang-diagnostic-*,
          -readability-implicit-bool-conversion,
          -cppcoreguidelines-pro-type-const-cast,
          -cppcoreguidelines-pro-type-union-access,
-         -hicpp-signed-bitwise"
+         -hicpp-signed-bitwise,
+         -cppcoreguidelines-avoid-non-const-global-variables"
 WarningsAsErrors: ""
 HeaderFilterRegex: ""
 FormatStyle: none
