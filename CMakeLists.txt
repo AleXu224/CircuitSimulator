@@ -4,7 +4,6 @@ set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE 
 set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
 project(CircuitSimulator VERSION 0.1.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
-# set(CMAKE_MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
 if (MSVC)
     #add_compile_options(/W4 /WX)
     # add_compile_options(/fsanitize=address)
