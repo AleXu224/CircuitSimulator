@@ -101,7 +101,7 @@ BoardElement::operator squi::Child() const {
 	return GestureDetector{
 		.onUpdate = [storage](GestureDetector::Event event) {
 			if (storage->selected) {
-				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_DELETE)) event.widget.deleteLater();
+				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_DELETE) || GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_BACKSPACE)) event.widget.deleteLater();
 				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) event.widget.customState.get<StateObservable>()->notify(ElementState::unselected);
 			}
 		},

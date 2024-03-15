@@ -97,7 +97,7 @@ BoardLine::operator squi::Child() const {
 				},
 				.onUpdate = [](Widget &w) {
                     if (!w.customState.get<Storage>().selected) return;
-					if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_DELETE)) {
+					if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_DELETE) || GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_BACKSPACE)) {
 						w.deleteLater();
 					}
 				},
