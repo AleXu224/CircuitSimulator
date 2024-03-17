@@ -9,6 +9,7 @@
 #include "widget.hpp"
 #include <algorithm>
 #include <functional>
+#include <print>
 #include <ranges>
 #include <unordered_map>
 #include <vector>
@@ -16,15 +17,17 @@
 
 struct BoardStorage {
 	// std::vector<Line> lines{};
-	std::unordered_map<Coords, std::vector<squi::ChildRef>> lines{};
+	std::unordered_map<Coords, std::vector<squi::ChildRef>> lineTiles{};
+	std::vector<squi::ChildRef> lines{};
 	std::unordered_map<Coords, std::pair<squi::Child, std::vector<squi::ChildRef>>> nodes{};
-	std::unordered_map<Coords, squi::ChildRef> board{};
+	std::unordered_map<Coords, squi::ChildRef> elementTiles{};
+	std::vector<squi::ChildRef> elements{};
 
 	bool isElementOverlapping(const Element &elem) {
 		auto elemSize = elem.size;
 		for (int i = elem.pos.x; i < elemSize.x + elem.pos.x; i++) {
 			for (int j = elem.pos.y; j < elemSize.y + elem.pos.y; j++) {
-				if (board.contains(Coords{.x = i, .y = j}))
+				if (elementTiles.contains(Coords{.x = i, .y = j}))
 					return true;
 			}
 		}
@@ -52,20 +55,14 @@ struct BoardStorage {
 		auto &storage = child.lock()->customState.get<BoardLine::Storage>();
 		auto alignment = storage.getAlignment();
 		auto modifiedVal = alignment == BoardLine::Alignment::horizontal ? &Coords::x : &Coords::y;
-		Coords minCoords{
-			std::min(storage.startPos->x, storage.endPos->x),
-			std::min(storage.startPos->y, storage.endPos->y),
-		};
-		Coords maxCoords{
-			std::max(storage.startPos->x, storage.endPos->x),
-			std::max(storage.startPos->y, storage.endPos->y),
-		};
+		Coords minCoords = Coords::min(storage.startPos, storage.endPos);
+		Coords maxCoords = Coords::max(storage.startPos, storage.endPos);
 		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.x : maxCoords.y - minCoords.y;
 		const auto initialVal = std::invoke(modifiedVal, minCoords);
 
 		for (auto i: std::views::iota(0, distance)) {
 			std::invoke(modifiedVal, minCoords) = initialVal + i;
-			lines[minCoords].emplace_back(child);
+			lineTiles[minCoords].emplace_back(child);
 		}
 		nodes[storage.startPos].second.emplace_back(child);
 		nodes[storage.startPos].first = createNodeChild(storage.startPos);
@@ -73,6 +70,7 @@ struct BoardStorage {
 			nodes[storage.endPos].second.emplace_back(child);
 			nodes[storage.endPos].first = createNodeChild(storage.endPos);
 		}
+		lines.emplace_back(child);
 	}
 
 	void removeLine(const squi::ChildRef &child) {
@@ -80,21 +78,14 @@ struct BoardStorage {
 		auto &storage = child.lock()->customState.get<BoardLine::Storage>();
 		auto alignment = storage.getAlignment();
 		auto modifiedVal = alignment == BoardLine::Alignment::horizontal ? &Coords::x : &Coords::y;
-		Coords minCoords{
-			std::min(storage.startPos->x, storage.endPos->x),
-			std::min(storage.startPos->y, storage.endPos->y),
-		};
-		Coords maxCoords{
-			std::max(storage.startPos->x, storage.endPos->x),
-			std::max(storage.startPos->y, storage.endPos->y),
-		};
+		Coords minCoords = Coords::min(storage.startPos, storage.endPos);
+		Coords maxCoords = Coords::max(storage.startPos, storage.endPos);
 		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.x : maxCoords.y - minCoords.y;
 		const auto initialVal = std::invoke(modifiedVal, minCoords);
 
-		// FIXME: crash here because of a negative distance
 		for (auto i: std::views::iota(0, distance)) {
 			std::invoke(modifiedVal, minCoords) = initialVal + i;
-			std::erase_if(lines[minCoords], [&](auto &val) -> bool {
+			std::erase_if(lineTiles[minCoords], [&](auto &val) -> bool {
 				if (val.expired()) return true;
 				return child.lock() == val.lock();
 			});
@@ -110,6 +101,13 @@ struct BoardStorage {
 				return elem.lock() == child.lock();
 			});
 		}
+		lines.erase(
+			std::remove_if(lines.begin(), lines.end(), [&](const squi::ChildRef &elem) {
+				if (elem.expired()) return true;
+				return child.lock() == elem.lock();
+			}),
+			lines.end()
+		);
 	}
 
 	void placeElement(const squi::ChildRef &child) {
@@ -118,7 +116,7 @@ struct BoardStorage {
 		auto elemSize = elem.size;
 		for (int i = elem.pos.x; i < elemSize.x + elem.pos.x; i++) {
 			for (int j = elem.pos.y; j < elemSize.y + elem.pos.y; j++) {
-				board[Coords{i, j}] = child;
+				elementTiles[Coords{i, j}] = child;
 			}
 		}
 		for (const auto &nodeCoords: elem.nodes) {
@@ -128,6 +126,7 @@ struct BoardStorage {
 			}
 			nodePair.second.emplace_back(child);
 		}
+		elements.emplace_back(child);
 	}
 
 	void removeElement(const squi::ChildRef &child) {
@@ -135,8 +134,8 @@ struct BoardStorage {
 		auto &elem = child.lock()->customState.get<Element>();
 		for (int i = elem.pos.x; i < elem.size.x + elem.pos.x; i++) {
 			for (int j = elem.pos.y; j < elem.size.y + elem.pos.y; j++) {
-				if (auto it = board.find(Coords{.x = i, .y = j}); it != board.end()) {
-					board.erase(it);
+				if (auto it = elementTiles.find(Coords{.x = i, .y = j}); it != elementTiles.end()) {
+					elementTiles.erase(it);
 				}
 			}
 		}
@@ -147,5 +146,12 @@ struct BoardStorage {
 				return elem.lock() == child.lock();
 			});
 		}
+		elements.erase(
+			std::remove_if(elements.begin(), elements.end(), [&](const squi::ChildRef &elem) {
+				if (elem.expired()) return true;
+				return child.lock() == elem.lock();
+			}),
+			elements.end()
+		);
 	}
 };

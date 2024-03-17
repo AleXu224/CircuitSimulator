@@ -21,7 +21,6 @@ struct BoardView {
 	static Pipeline *pipeline;
 	class Impl : public squi::Widget {
 		// Data
-		BoardStorage boardStorage{};
 		squi::GestureDetector::State &gd;
 		Quad quad;
 		squi::vec2 viewOffset{};
@@ -29,6 +28,7 @@ struct BoardView {
 		using ComponentObservable = squi::Observable<std::reference_wrapper<const Component>>;
 
 	public:
+		BoardStorage boardStorage{};
 		std::shared_ptr<ComponentObservable> componentSelectorObservable = ComponentObservable::create();
 
 	private:

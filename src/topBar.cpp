@@ -3,18 +3,43 @@
 #include "box.hpp"
 #include "button.hpp"
 #include "components/componentStore.hpp"
+#include "fontIcon.hpp"
 #include "gestureDetector.hpp"
 #include "msdfImage.hpp"
 #include "row.hpp"
+#include "widget.hpp"
 #include <functional>
-
+#include <print>
+#include "graphDescriptor.hpp"
 
 
 using namespace squi;
 
+struct TopBarButton {
+	// Args
+	squi::Widget::Args widget{};
+	std::function<void(GestureDetector::Event)> onClick{};
+	Child child{};
+
+	operator squi::Child() const {
+		return Button{
+			.widget{
+				.width = 48.f,
+				.height = 48.f,
+				.margin = 0.f,
+				.padding = 0.f,
+			},
+			.style = ButtonStyle::Subtle(),
+			.onClick{onClick},
+			.child = Align{.child{child}},
+		};
+	}
+};
+
 TopBar::operator squi::Child() const {
 	auto storage = std::make_shared<Storage>(Storage{
 		.componentSelectorObserver = componentSelectorObserver,
+		.boardStorage = boardStorage,
 	});
 
 	return Box{
@@ -29,7 +54,19 @@ TopBar::operator squi::Child() const {
 		.child = Row{
 			.spacing = 2.f,
 			.children = std::invoke([&storage] {
-				Children ret{};
+				Children ret{
+					TopBarButton{
+						.onClick = [storage](GestureDetector::Event) {
+							// std::println("{}", storage->boardStorage.elements.size());
+							GraphDescriptor descriptor{storage->boardStorage};
+						},
+						.child = FontIcon{
+							.icon = 0xF5B0,
+							.size = 24.f,
+							.color = 0xFFFFFFFF,
+						},
+					},
+				};
 				for (const auto &comp: ComponentStore::components) {
 					if (comp.get().hidden) continue;
 					ret.emplace_back(Button{
@@ -40,7 +77,7 @@ TopBar::operator squi::Child() const {
 							.padding = 0.f,
 						},
 						.style = ButtonStyle::Subtle(),
-						.onClick = [storage, &comp](GestureDetector::Event  /*event*/){
+						.onClick = [storage, &comp](GestureDetector::Event /*event*/) {
 							storage->componentSelectorObserver->notify(comp.get());
 						},
 						.child = Align{

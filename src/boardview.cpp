@@ -176,12 +176,12 @@ void BoardView::Impl::onUpdate() {
 			};
 			for (auto x = minPos.x; x < maxPos.x; x++) {
 				for (auto y = minPos.y; y < maxPos.y; y++) {
-					if (auto it = boardStorage.board.find(Coords{x, y}); it != boardStorage.board.end()) {
+					if (auto it = boardStorage.elementTiles.find(Coords{x, y}); it != boardStorage.elementTiles.end()) {
 						if (it->second.expired()) continue;
 						selectedWidgets.emplace_back(it->second);
 						it->second.lock()->customState.get<StateObservable>()->notify(ElementState::selected);
 					}
-					if (auto it = boardStorage.lines.find(Coords{x, y}); it != boardStorage.lines.end()) {
+					if (auto it = boardStorage.lineTiles.find(Coords{x, y}); it != boardStorage.lineTiles.end()) {
 						for (auto &line: it->second) {
 							if (line.expired()) continue;
 							selectedWidgets.emplace_back(line);
@@ -370,8 +370,8 @@ void BoardView::Impl::clickElement(squi::GestureDetector::Event /*event*/) {
 		addChild(selectedLineWidget.value());
 		selectedLineWidget.value()->customState.get<StateObservable>()->notify(ElementState::placing);
 	} else if (
-		auto itLine = boardStorage.lines.find(coordsToGridRounded(GestureDetector::getMousePos()));
-		itLine != boardStorage.lines.end() && !itLine->second.empty()
+		auto itLine = boardStorage.lineTiles.find(coordsToGridRounded(GestureDetector::getMousePos()));
+		itLine != boardStorage.lineTiles.end() && !itLine->second.empty()
 	) {
 		for (auto &widget: itLine->second) {
 			if (widget.expired()) continue;
@@ -379,8 +379,8 @@ void BoardView::Impl::clickElement(squi::GestureDetector::Event /*event*/) {
 			selectedWidgets.emplace_back(widget);
 		}
 	} else if (
-		auto itBoard = boardStorage.board.find(coordsToGridFloored(GestureDetector::getMousePos()));
-		itBoard != boardStorage.board.end()
+		auto itBoard = boardStorage.elementTiles.find(coordsToGridFloored(GestureDetector::getMousePos()));
+		itBoard != boardStorage.elementTiles.end()
 	) {
 		if (itBoard->second.expired()) return;
 		auto widget = itBoard->second.lock();
@@ -440,6 +440,7 @@ BoardView::operator squi::Child() const {
 		.children{
 			TopBar{
 				.componentSelectorObserver = ret->componentSelectorObservable,
+				.boardStorage = ret->boardStorage,
 			},
 			ret,
 		},

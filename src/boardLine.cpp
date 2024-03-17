@@ -1,6 +1,7 @@
 #include "boardLine.hpp"
 #include "boardStorage.hpp"
 #include "components/componentStore.hpp"
+#include "element.hpp"
 #include "elementState.hpp"
 #include "gestureDetector.hpp"
 #include "msdfImage.hpp"
@@ -35,6 +36,16 @@ BoardLine::operator squi::Child() const {
 			.widget{
 				.width = static_cast<float>(comp.width) * 20.f,
 				.height = static_cast<float>(comp.height) * 20.f,
+				.customState{
+					Element{
+						.size{
+							.x = static_cast<int32_t>(comp.width),
+							.y = static_cast<int32_t>(comp.height),
+						},
+						.component = comp,
+						.type = ElementType::Line,
+					},
+				},
 				.onInit = [&boardStorage = boardStorage, startPos = startPos](Widget &w) {
 					w.customState.add(Storage{
 						.boardStorage = boardStorage,
@@ -101,7 +112,7 @@ BoardLine::operator squi::Child() const {
 					);
 				},
 				.onUpdate = [](Widget &w) {
-                    if (!w.customState.get<Storage>().selected) return;
+					if (!w.customState.get<Storage>().selected) return;
 					if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_DELETE) || GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_BACKSPACE)) {
 						w.deleteLater();
 					}

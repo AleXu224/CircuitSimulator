@@ -94,7 +94,6 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 
 BoardElement::operator squi::Child() const {
 	auto storage = std::make_shared<Storage>(Storage{
-		.component = component,
 		.boardStorage = boardStorage,
 	});
 
@@ -117,11 +116,12 @@ BoardElement::operator squi::Child() const {
 						},
 						.pos{position},
 						.rotation = rotation,
+						.component = component,
 					},
 				},
 				.onInit = [storage = storage](Widget &w) {
 					auto &element = w.customState.get<Element>();
-					BoardElement::Rotate(w, element.rotation, storage->component);
+					BoardElement::Rotate(w, element.rotation, element.component);
 					w.customState.add(StateContainer{squi::Observable<ElementState>::create()});
 
 					w.customState.add(

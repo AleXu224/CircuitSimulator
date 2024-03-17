@@ -24,7 +24,6 @@ struct BoardElement {
 		squi::vec2 dragStartPos{};
 		bool selected = false;
 		bool placed = false;
-		const Component &component;
 		BoardStorage &boardStorage;
 	};
 
