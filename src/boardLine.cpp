@@ -65,6 +65,11 @@ BoardLine::operator squi::Child() const {
 								auto &storage = img.customState.get<Storage>();
 								switch (state) {
 									case ElementState::placed: {
+										auto delta = *storage.startPos - *storage.endPos;
+										if (delta.x == 0 && delta.y == 0) {
+											img.deleteLater();
+											return;
+										}
 										img.setColor(0xFFFFFFFF);
 										storage.placed = true;
 										storage.boardStorage.placeLine(widget);
