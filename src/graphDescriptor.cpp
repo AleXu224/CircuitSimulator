@@ -3,9 +3,9 @@
 #include "element.hpp"
 #include <chrono>
 #include <functional>
-#include <iterator>
 #include <optional>
 #include <print>
+#include <ranges>
 #include <unordered_map>
 #include <unordered_set>
 #include <vector>
@@ -14,79 +14,63 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	exploreBoard(board);
 }
 
-struct RefWrapperHasher {
-	size_t operator()(const std::reference_wrapper<Element> &elem) const {
-		return std::hash<uint32_t>{}(elem.get().id);
-	}
-};
-
-struct ElementHasher {
-	size_t operator()(const Element &elem) const {
-		return std::hash<uint32_t>{}(elem.id);
-	}
-};
-
-struct Node {
-	std::unordered_set<Element, ElementHasher> elements{};
-	std::unordered_set<Element, ElementHasher> lines{};
-};
-
-struct ExpandNodeResult {
-	std::vector<Element> elements{};
-	std::vector<Element> lines{};
-};
-
-std::optional<ExpandNodeResult> expandNode(
-	const BoardStorage &board,
+std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
+	size_t nodeIndex,
 	const Coords &coords,
-    uint32_t initialId,
-	const std::unordered_set<uint32_t> &exploredElements,
-	const std::unordered_set<uint32_t> &exploredLines
+	const GraphElement &graphElement,
+	ExplorationState &state
 ) {
 	struct Args {
+		const size_t nodeIndex;
 		ExpandNodeResult ret{};
 		bool alreadyExplored = false;
 		std::unordered_set<uint32_t> locallyExploredLines{};
 		std::unordered_set<uint32_t> locallyExploredElements{};
-        uint32_t initialId;
-		const BoardStorage &board;
-		const std::unordered_set<uint32_t> &exploredElements;
-		const std::unordered_set<uint32_t> &exploredLines;
+		const GraphElement &graphElement;
+		ExplorationState &state;
+		GraphDescriptor &self;
 	} args{
-        .initialId = initialId,
-		.board = board,
-        .exploredElements = exploredElements,
-		.exploredLines = exploredLines,
+		.nodeIndex = nodeIndex,
+		.graphElement = graphElement,
+		.state = state,
+		.self = *this,
 	};
 
 	auto crawler = [](this auto &&self, Args &args, const Coords &coords) -> void {
-		auto elems = args.board.nodes.at(coords).second;
+		auto elems = args.state.board.nodes.at(coords).second;
 		for (auto &elem: elems) {
-			if (elem.expired()) continue;
-			auto widget = elem.lock();
-			auto &elemData = widget->customState.get<Element>();
-            // Early returns:
-            // Both in the case of elements and lines if one is found that has already been explored before
-            // then it is not worth exploring this any further since it is guaranteed that another
-            // node exploration has already explored this or will do so in the future
+			if (elem.widget.expired()) continue;
+			auto widget = elem.widget.lock();
+			auto &elemData = elem.element.get();
+			// Early returns:
+			// Both in the case of elements and lines if one is found that has already been explored before
+			// then it is not worth exploring this any further since it is guaranteed that another
+			// node exploration has already explored this or will do so in the future
 			switch (elemData.type) {
 				case ElementType::Other: {
-                    args.ret.elements.push_back(elemData);
-                    if (elemData.id == args.initialId) continue;
-                    
-					if (args.exploredElements.contains(elemData.id)) {
-                        args.alreadyExplored = true;
-                        return;
-                    }
-                    if (args.locallyExploredElements.contains(elemData.id)) {
-                        continue;
-                    }
-                    args.locallyExploredElements.emplace(elemData.id);
+					args.ret.elements.push_back(elemData);
+					if (elemData.id == args.graphElement.element.id) continue;
+
+					if (args.state.exploredElements.contains(elemData.id)) {
+						args.alreadyExplored = true;
+						return;
+					}
+					// Set the element connection to the current node
+					for (const auto &connection: args.state.board.nodes.at(coords).second) {
+						if (connection.element.get().id == elemData.id) {
+							auto [it, _] = args.self.elements.emplace(GraphElement{.element{elemData}});
+							it->nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
+							break;
+						}
+					}
+					args.locallyExploredElements.emplace(elemData.id);
+
 					continue;
 				}
 				case ElementType::Line: {
-					if (args.exploredLines.contains(elemData.id)) {
+					if (args.state.exploredLines.contains(elemData.id)) {
 						args.alreadyExplored = true;
+						args.graphElement.nodes.at(args.nodeIndex) = args.state.exploredLines.at(elemData.id);
 						return;
 					}
 					if (args.locallyExploredLines.contains(elemData.id)) {
@@ -115,44 +99,51 @@ std::optional<ExpandNodeResult> expandNode(
 void GraphDescriptor::exploreBoard(BoardStorage &board) {
 	if (board.elements.empty()) return;
 	auto startTime = std::chrono::steady_clock::now();
-	uint32_t nodeIdCounter = 0;
-	std::unordered_set<uint32_t> exploredElements{};
-	std::unordered_set<uint32_t> exploredLines{};
-	std::unordered_map<uint32_t, Node> nodes{};
-	std::unordered_set<Element, ElementHasher> elementsToTraverse{board.elements.front().lock()->customState.get<Element>()};
+	ExplorationState state{
+		.board = board,
+	};
 
-	while (!elementsToTraverse.empty()) {
+	while (!state.elementsToTraverse.empty()) {
 		// Copy the elements to traverse since the container will need to be modified while iterating through it
 		// which could cause the iterators to be invalidated
-		auto elemsToTraverse = elementsToTraverse;
+		auto elemsToTraverse = state.elementsToTraverse;
 
 		for (const auto &elem: elemsToTraverse) {
 			auto removeFromQueue = [&]() {
-				if (auto el = elementsToTraverse.find(elem); el != elementsToTraverse.end()) {
-					elementsToTraverse.erase(el);
+				if (auto el = state.elementsToTraverse.find(elem); el != state.elementsToTraverse.end()) {
+					state.elementsToTraverse.erase(el);
 				}
 			};
-			if (exploredElements.contains(elem.id)) {
+			if (state.exploredElements.contains(elem.id)) {
 				removeFromQueue();
 				continue;
 			}
-			elementsToTraverse.erase(elementsToTraverse.find(elem));
-			exploredElements.emplace(elem.id);
+			state.elementsToTraverse.erase(state.elementsToTraverse.find(elem));
+			state.exploredElements.emplace(elem.id);
 
-			for (const auto &node: elem.nodes) {
-				auto res = expandNode(board, node + elem.pos, elem.id, exploredElements, exploredLines);
+			auto [graphElement, _] = elements.emplace(GraphElement{
+				.element = elem,
+			});
+
+			for (const auto &[index, node]: elem.nodes | std::views::enumerate) {
+				auto res = expandNode(index, node + elem.pos, *graphElement, state);
 				// Check if the expanded node has been explored before
-				if (!res.has_value()) continue;
+				if (!res.has_value()) {
+					continue;
+				}
+
+				elements.find(GraphElement{.element{elem}})->nodes.at(index) = state.nodeIdCounter;
 				auto &resVal = res.value();
 				for (auto &line: resVal.lines) {
-					exploredLines.insert(line.id);
+					state.exploredLines.emplace(line.id, state.nodeIdCounter);
 				}
 				for (auto &element: resVal.elements) {
-					if (exploredElements.contains(element.id)) continue;
-					elementsToTraverse.insert(element);
+					if (state.exploredElements.contains(element.id)) continue;
+					if (state.elementsToTraverse.contains(element)) continue;
+					state.elementsToTraverse.insert(element);
 				}
 				nodes.emplace(
-					nodeIdCounter++,
+					state.nodeIdCounter++,
 					Node{
 						.elements{std::make_move_iterator(resVal.elements.begin()), std::make_move_iterator(resVal.elements.end())},
 						.lines{std::make_move_iterator(resVal.lines.begin()), std::make_move_iterator(resVal.lines.end())},
@@ -161,12 +152,20 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 			}
 		}
 	}
+
 	auto endTime = std::chrono::steady_clock::now();
 	std::println("----------------");
 	std::println("Time taken: {}", endTime - startTime);
-	std::println("Lines explored: {}", exploredLines.size());
-	std::println("Elements explored: {}", exploredElements.size());
+	std::println("Lines explored: {}", state.exploredLines.size());
+	std::println("Elements explored: {}", state.exploredElements.size());
 	for (auto &[nodeId, node]: nodes) {
 		std::println("Node: {}, with {} lines and {} elements", nodeId, node.lines.size(), node.elements.size());
+	}
+	for (const auto &element: elements) {
+		std::stringstream vectorNodeIds{};
+		for (const auto &node: element.nodes) {
+			vectorNodeIds << "N" << node << " ";
+		}
+		std::println("{} #{} {}", element.element.component.get().name, element.element.id, vectorNodeIds.str());
 	}
 }

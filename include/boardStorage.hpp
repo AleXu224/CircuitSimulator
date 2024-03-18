@@ -13,13 +13,13 @@
 #include <ranges>
 #include <unordered_map>
 #include <vector>
-
+#include "connection.hpp"
 
 struct BoardStorage {
 	// std::vector<Line> lines{};
 	std::unordered_map<Coords, std::vector<squi::ChildRef>> lineTiles{};
 	std::vector<squi::ChildRef> lines{};
-	std::unordered_map<Coords, std::pair<squi::Child, std::vector<squi::ChildRef>>> nodes{};
+	std::unordered_map<Coords, std::pair<squi::Child, std::vector<Connection>>> nodes{};
 	std::unordered_map<Coords, squi::ChildRef> elementTiles{};
 	std::vector<squi::ChildRef> elements{};
 
@@ -64,10 +64,19 @@ struct BoardStorage {
 			std::invoke(modifiedVal, minCoords) = initialVal + i;
 			lineTiles[minCoords].emplace_back(child);
 		}
-		nodes[storage.startPos].second.emplace_back(child);
+		auto &element = child.lock()->customState.get<Element>();
+		nodes[storage.startPos].second.emplace_back(Connection{
+			.nodeIndex = 0,
+			.element = element,
+			.widget = child,
+		});
 		nodes[storage.startPos].first = createNodeChild(storage.startPos);
 		if (*storage.startPos != *storage.endPos) {
-			nodes[storage.endPos].second.emplace_back(child);
+			nodes[storage.endPos].second.emplace_back(Connection{
+				.nodeIndex = 1,
+				.element = element,
+				.widget = child,
+			});
 			nodes[storage.endPos].first = createNodeChild(storage.endPos);
 		}
 		lines.emplace_back(child);
@@ -91,14 +100,14 @@ struct BoardStorage {
 			});
 		}
 		std::erase_if(nodes[storage.startPos].second, [&](auto &elem) -> bool {
-			if (elem.expired()) return true;
-			return elem.lock() == child.lock();
+			if (elem.widget.expired()) return true;
+			return elem.widget.lock() == child.lock();
 		});
 
 		if (*storage.startPos != *storage.endPos) {
 			std::erase_if(nodes[storage.endPos].second, [&](auto &elem) -> bool {
-				if (elem.expired()) return true;
-				return elem.lock() == child.lock();
+				if (elem.widget.expired()) return true;
+				return elem.widget.lock() == child.lock();
 			});
 		}
 		lines.erase(
@@ -119,12 +128,16 @@ struct BoardStorage {
 				elementTiles[Coords{i, j}] = child;
 			}
 		}
-		for (const auto &nodeCoords: elem.nodes) {
+		for (const auto &[index, nodeCoords]: elem.nodes | std::views::enumerate) {
 			auto &nodePair = nodes[elem.pos + nodeCoords];
 			if (!nodePair.first) {
 				nodePair.first = createNodeChild(elem.pos + nodeCoords);
 			}
-			nodePair.second.emplace_back(child);
+			nodePair.second.emplace_back(Connection{
+				.nodeIndex = index,
+				.element = elem,
+				.widget = child,
+			});
 		}
 		elements.emplace_back(child);
 	}
@@ -142,8 +155,8 @@ struct BoardStorage {
 		for (const auto &nodeCoords: elem.nodes) {
 			auto &vec = nodes[elem.pos + nodeCoords].second;
 			std::erase_if(vec, [&child](auto &elem) -> bool {
-				if (elem.expired()) return true;
-				return elem.lock() == child.lock();
+				if (elem.widget.expired()) return true;
+				return elem.widget.lock() == child.lock();
 			});
 		}
 		elements.erase(
