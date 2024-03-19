@@ -29,7 +29,7 @@ void handlePosChange(Widget &w) {
 }
 
 BoardLine::operator squi::Child() const {
-	const auto &comp = ComponentStore::components.at(2).get();
+	const auto &comp = ComponentStore::components.at(0).get();
 
 	return GestureDetector{
 		.child = MsdfImage{

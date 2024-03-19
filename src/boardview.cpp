@@ -100,7 +100,9 @@ BoardView::Impl::Impl(const BoardView &args)
 
 void BoardView::Impl::onUpdate() {
 	if (!loadedComponents) {
+		uint32_t idCounter = 0;
 		for (const auto &comp: ComponentStore::components) {
+			const_cast<uint32_t&>(comp.get().id) = idCounter++;
 			auto job = std::thread([&comp, &instance = Window::of(this).engine.instance] {
 				{
 					auto data = Image::Data::fromFile(comp.get().texturePath);

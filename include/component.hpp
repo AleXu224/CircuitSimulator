@@ -7,6 +7,7 @@
 #include <vector>
 
 struct Component{
+    uint32_t id = 0;
     std::string name;
     uint32_t width;
     uint32_t height;

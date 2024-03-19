@@ -1,6 +1,7 @@
 #include "graphDescriptor.hpp"
 #include "boardLine.hpp"
 #include "element.hpp"
+#include <algorithm>
 #include <chrono>
 #include <functional>
 #include <optional>
@@ -12,6 +13,8 @@
 
 GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	exploreBoard(board);
+	generateGraphMatrix();
+	generateIncidenceMatrix();
 }
 
 std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
@@ -168,4 +171,49 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 		}
 		std::println("{} #{} {}", element.element.component.get().name, element.element.id, vectorNodeIds.str());
 	}
+}
+
+void GraphDescriptor::generateGraphMatrix() {
+	constexpr size_t maxNodeConnections = 2;
+	const size_t vectorSizeReq = 1 /*Element id*/ + 1 /*Component id*/ + maxNodeConnections;
+	std::vector<Eigen::VectorXf> vecs{};
+	vecs.reserve(elements.size());
+	for (const auto &element: elements) {
+		Eigen::VectorXf ret{};
+		ret.resize(vectorSizeReq);
+		ret[0] = static_cast<float>(element.element.id);
+		ret[1] = static_cast<float>(element.element.component.get().id);
+		int64_t index = 2;
+		for (auto &connection: element.nodes | std::views::take(maxNodeConnections)) {
+			ret[index++] = static_cast<float>(connection);
+		}
+		vecs.emplace_back(std::move(ret));
+	}
+
+	std::sort(vecs.begin(), vecs.end(), [](const auto &a, const auto &b) {
+		return a[1] < b[1];
+	});
+	graphMatrix.resize(vectorSizeReq, static_cast<int64_t>(vecs.size()));
+	for (const auto &[index, vec]: vecs | std::views::enumerate) {
+		graphMatrix.col(index) = vec;
+	}
+
+	std::println("Graph Matrix:");
+	std::cout << graphMatrix << std::endl;
+}
+
+void GraphDescriptor::generateIncidenceMatrix() {
+	incidenceMatrix.resize(
+		static_cast<int64_t>(nodes.size()),
+		static_cast<int64_t>(elements.size())
+	);
+	incidenceMatrix.fill(0);
+	for (int64_t i = 0; i < graphMatrix.cols(); i++) {
+		const auto &graphCol = graphMatrix.col(i);
+		incidenceMatrix.col(i)(static_cast<int64_t>(std::round(graphCol[2]))) = 1;
+		incidenceMatrix.col(i)(static_cast<int64_t>(std::round(graphCol[3]))) = -1;
+	}
+	
+	std::println("Incidence Matrix:");
+	std::cout << incidenceMatrix << std::endl;
 }

@@ -12,6 +12,7 @@
     "skyr-url",
     "gtest",
     "utfcpp",
-    "glm"
+    "glm",
+    "eigen3"
   ]
 }

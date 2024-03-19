@@ -46,7 +46,7 @@ struct BoardStorage {
 					pos += offset;
 				},
 			},
-			.texture{ComponentStore::components.at(3).get().texture}
+			.texture{ComponentStore::components.at(1).get().texture}
 		};
 	}
 

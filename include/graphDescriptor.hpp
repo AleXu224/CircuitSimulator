@@ -1,13 +1,18 @@
 #include "boardStorage.hpp"
 #include "element.hpp"
 #include "unordered_set"
+#include "Eigen/Eigen"
+#include <Eigen/src/Core/Matrix.h>
 
 
 struct GraphDescriptor {
 	GraphDescriptor(BoardStorage &);
 
+
 private:
 	void exploreBoard(BoardStorage &);
+	void generateGraphMatrix();
+	void generateIncidenceMatrix();
 
 	struct ExpandNodeResult {
 		std::vector<Element> elements{};
@@ -52,4 +57,6 @@ private:
 public:
 	std::unordered_set<GraphElement, GraphElementHasher> elements{};
 	std::unordered_map<uint32_t, Node> nodes{};
+	Eigen::MatrixXf graphMatrix{};
+	Eigen::MatrixXf incidenceMatrix{};
 };

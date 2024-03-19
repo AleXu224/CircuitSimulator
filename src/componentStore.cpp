@@ -7,10 +7,10 @@
 #include "components/inductor.hpp"
 
 const std::vector<std::reference_wrapper<const Component>> ComponentStore::components{
-    resistor,
-    voltageSource,
     conductor,
     node,
+    resistor,
+    voltageSource,
     capacitor,
     inductor,
 };

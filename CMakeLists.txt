@@ -40,5 +40,8 @@ target_link_libraries(CircuitSimulator PRIVATE glt)
 install(TARGETS CircuitSimulator DESTINATION .)
 install(DIRECTORY "${PROJECT_BINARY_DIR}/assets" DESTINATION .)
 
+find_package(Eigen3 CONFIG REQUIRED)
+target_link_libraries(CircuitSimulator PRIVATE Eigen3::Eigen)
+
 set(CPACK_GENERATOR "ZIP;NSIS")
 include(CPack)
