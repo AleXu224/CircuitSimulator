@@ -1,21 +1,18 @@
 #pragma once
 
-#include "boardStorage.hpp"
 #include "component.hpp"
 #include "vec2.hpp"
 #include "widget.hpp"
-#include "coords.hpp"
+#include "element.hpp"
+
+struct BoardStorage;
 
 struct BoardElement {
 	// Args
 	squi::Widget::Args widget{};
-	Coords position{
-		.x = 0,
-		.y = 0,
-	};
-	uint32_t rotation = 0;
-	const Component &component;
+	Element element;
 	BoardStorage &boardStorage;
+	bool placed = false;
 
 	static void Rotate(squi::Widget &widget, uint32_t rotation, const Component &component);
 

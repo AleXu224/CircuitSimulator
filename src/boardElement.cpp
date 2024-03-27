@@ -1,4 +1,5 @@
 #include "boardElement.hpp"
+#include "boardStorage.hpp"
 #include "component.hpp"
 #include "coords.hpp"
 #include "element.hpp"
@@ -9,6 +10,7 @@
 #include "stateContainer.hpp"
 #include <GLFW/glfw3.h>
 #include <vector>
+
 
 
 using namespace squi;
@@ -34,7 +36,7 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 			newTopRight = {component.uvTopLeft.x, component.uvTopLeft.y};
 			newBottomRight = {component.uvBottomRight.x, component.uvTopLeft.y};
 			newBottomLeft = {component.uvBottomRight.x, component.uvBottomRight.y};
-			for (const auto &node : component.nodes) {
+			for (const auto &node: component.nodes) {
 				newNodes.emplace_back(Coords{
 					.x = static_cast<int>(component.height - node.y),
 					.y = node.x,
@@ -47,7 +49,7 @@ void BoardElement::Rotate(squi::Widget &widget, uint32_t rotation, const Compone
 			newTopRight = {component.uvTopLeft.x, component.uvBottomRight.y};
 			newBottomRight = {component.uvTopLeft.x, component.uvTopLeft.y};
 			newBottomLeft = {component.uvBottomRight.x, component.uvTopLeft.y};
-			for (const auto &node : component.nodes) {
+			for (const auto &node: component.nodes) {
 				newNodes.emplace_back(Coords{
 					.x = static_cast<int>(component.width - node.x),
 					.y = static_cast<int>(component.height - node.y),
@@ -106,21 +108,16 @@ BoardElement::operator squi::Child() const {
 		},
 		.child = MsdfImage{
 			.widget{
-				.width = static_cast<float>(component.width) * 20.f,
-				.height = static_cast<float>(component.height) * 20.f,
-				.customState{
-					Element{
-						.size{
-							.x = static_cast<int32_t>(component.width),
-							.y = static_cast<int32_t>(component.height),
-						},
-						.pos{position},
-						.rotation = rotation,
-						.component = component,
-					},
-				},
-				.onInit = [storage = storage](Widget &w) {
+				.customState{element},
+				.onInit = [storage = storage, placed = placed](Widget &w) {
 					auto &element = w.customState.get<Element>();
+					element.size = {
+						.x = static_cast<int32_t>(element.component.get().width),
+						.y = static_cast<int32_t>(element.component.get().height),
+					};
+					w.state.width = static_cast<float>(element.component.get().width) * 20.f;
+					w.state.height = static_cast<float>(element.component.get().height) * 20.f;
+
 					BoardElement::Rotate(w, element.rotation, element.component);
 					w.customState.add(StateContainer{squi::Observable<ElementState>::create()});
 
@@ -160,6 +157,10 @@ BoardElement::operator squi::Child() const {
 							}
 						)
 					);
+
+					if (placed) {
+						w.customState.get<StateObservable>()->notify(ElementState::placed);
+					}
 				},
 				.onArrange = [](Widget &w, auto &pos) {
 					auto &elemPos = w.customState.get<Element>().pos;
@@ -167,10 +168,10 @@ BoardElement::operator squi::Child() const {
 					pos += vec2(static_cast<float>(elemPos.x), static_cast<float>(elemPos.y)) * 20.f;
 				},
 			},
-			.texture = component.texture,
+			.texture = element.component.get().texture,
 			.color{1.f, 1.f, 1.f, 0.5f},
-			.uvTopLeft{component.uvTopLeft},
-			.uvBottomRight{component.uvBottomRight},
+			.uvTopLeft{element.component.get().uvTopLeft},
+			.uvBottomRight{element.component.get().uvBottomRight},
 		},
 	};
 }

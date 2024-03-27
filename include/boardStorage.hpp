@@ -1,19 +1,28 @@
 #pragma once
 
+#include "../extern/portable-file-dialogs/portable-file-dialogs.h"
+
 #include "boardLine.hpp"
+
+#include "boardElement.hpp"
 #include "components/componentStore.hpp"
+#include "connection.hpp"
 #include "coords.hpp"
 #include "element.hpp"
+#include "fstream"
 #include "msdfImage.hpp"
+#include "observer.hpp"
+#include "saveData.hpp"
 #include "vec2.hpp"
 #include "widget.hpp"
 #include <algorithm>
+#include <filesystem>
 #include <functional>
 #include <print>
 #include <ranges>
 #include <unordered_map>
 #include <vector>
-#include "connection.hpp"
+
 
 struct BoardStorage {
 	// std::vector<Line> lines{};
@@ -22,6 +31,144 @@ struct BoardStorage {
 	std::unordered_map<Coords, std::pair<squi::Child, std::vector<Connection>>> nodes{};
 	std::unordered_map<Coords, squi::ChildRef> elementTiles{};
 	std::vector<squi::ChildRef> elements{};
+
+	using ObservableType = squi::Observable<const squi::Child &>;
+	using BoardObservable = std::shared_ptr<ObservableType>;
+	BoardObservable boardObservable = ObservableType::create();
+
+	std::shared_ptr<squi::VoidObservable> clearObservable = squi::VoidObservable::create();
+
+	void save() {
+		SaveData ret{};
+		ret.elements.reserve(elements.size());
+		for (const auto &elem: elements) {
+			if (elem.expired()) continue;
+			auto w = elem.lock();
+			auto &e = w->customState.get<Element>();
+			ret.elements.emplace_back(ElementSaveData{
+				.id = e.id,
+				.type = e.component.get().id,
+				.posX = e.pos.x,
+				.posY = e.pos.y,
+				.rotation = e.rotation,
+			});
+		}
+
+		for (const auto &line: lines) {
+			if (line.expired()) continue;
+			auto w = line.lock();
+			auto &e = w->customState.get<Element>();
+			auto &s = w->customState.get<BoardLine::Storage>();
+			ret.lines.emplace_back(LineSaveData{
+				.id = e.id,
+				.startPosX = s.startPos->x,
+				.startPosY = s.startPos->y,
+				.endPosX = s.endPos->x,
+				.endPosY = s.endPos->y,
+			});
+		}
+
+		auto serialized = ret.serialize();
+
+		auto pathStr = pfd::save_file(
+						   "Save",
+						   {},
+						   {
+							   "Circuit Simulator Save File (*.sqcs)",
+							   "*.sqcs",
+							   "All Files (*.*)",
+							   "*",
+						   }
+		)
+						   .result();
+
+		if (!pathStr.empty()) {
+			std::filesystem::path path(pathStr);
+			std::println("Saving to: {}", path.string());
+			std::ofstream out(path, std::ios::trunc | std::ios::out | std::ios::binary);
+			out.write(std::bit_cast<char *>(serialized.data()), static_cast<int64_t>(serialized.size()));
+			out.close();
+		}
+	}
+
+	void load() {
+		auto pathStr = pfd::open_file(
+						   "Load",
+						   {},
+						   {
+							   "Circuit Simulator Save File (*.sqcs)",
+							   "*.sqcs",
+							   "All Files (*.*)",
+							   "*",
+						   }
+		)
+						   .result();
+
+		if (!pathStr.empty()) {
+			std::filesystem::path path(pathStr.front());
+			std::println("Loading save: {}", path.string());
+			std::ifstream in(path, std::ios::in | std::ios::binary);
+			if (!in.is_open()) {
+				std::println("Failed to open save file");
+				return;
+			}
+			std::stringstream contents{};
+			contents << in.rdbuf();
+			in.close();
+
+			SaveData data{};
+			auto contentsView = contents.view();
+			data.deserialize(std::span<const std::byte>(
+				std::bit_cast<const std::byte *>(&*contentsView.begin()),
+				contentsView.size()
+			));
+
+			elements.clear();
+			elementTiles.clear();
+			lines.clear();
+			lineTiles.clear();
+			nodes.clear();
+			clearObservable->notify();
+
+			uint32_t maxId = 0;
+
+			const auto &lineComponent = ComponentStore::components.at(0).get();
+			for (auto &elem: data.elements) {
+				maxId = std::max(maxId, elem.id);
+				boardObservable->notify(BoardElement{
+					.element{
+						.id = elem.id,
+						.pos{
+							.x = elem.posX,
+							.y = elem.posY,
+						},
+						.component = ComponentStore::components.at(elem.type).get(),
+					},
+					.boardStorage = *this,
+					.placed = true,
+				});
+			}
+			for (auto &line: data.lines) {
+				maxId = std::max(maxId, line.id);
+				boardObservable->notify(BoardLine{
+					.boardStorage = *this,
+					.startPos{line.startPosX, line.startPosY},
+					.endPos{Coords{line.endPosX, line.endPosY}},
+					.elem{Element{
+						.id = line.id,
+						.size{
+							.x = static_cast<int32_t>(lineComponent.width),
+							.y = static_cast<int32_t>(lineComponent.height),
+						},
+						.component = lineComponent,
+						.type = ElementType::Line,
+					}},
+				});
+			}
+
+			Element::idCounter = maxId;
+		}
+	}
 
 	bool isElementOverlapping(const Element &elem) {
 		auto elemSize = elem.size;
@@ -134,7 +281,7 @@ struct BoardStorage {
 				nodePair.first = createNodeChild(elem.pos + nodeCoords);
 			}
 			nodePair.second.emplace_back(Connection{
-				.nodeIndex = index,
+				.nodeIndex = size_t(index),
 				.element = elem,
 				.widget = child,
 			});

@@ -39,8 +39,8 @@ BoardView::Impl::Impl(const BoardView &args)
 				  }
 				  w->customState.get<StateObservable>()->notify(ElementState::placed);
 				  if (!continuePlacing) {
-					selectedLineWidget.reset();
-					return;
+					  selectedLineWidget.reset();
+					  return;
 				  }
 				  Child child = BoardLine{
 					  .boardStorage = boardStorage,
@@ -58,8 +58,10 @@ BoardView::Impl::Impl(const BoardView &args)
 				  auto &comp = selectedComponent.value();
 
 				  squi::Child child = BoardElement{
-					  .rotation = elem.rotation,
-					  .component = comp.get(),
+					  .element{
+						  .rotation = elem.rotation,
+						  .component = comp.get(),
+					  },
 					  .boardStorage = boardStorage,
 				  };
 				  addChild(child);
@@ -84,7 +86,9 @@ BoardView::Impl::Impl(const BoardView &args)
 		  }
 
 		  squi::Child child = BoardElement{
-			  .component = comp.get(),
+			  .element{
+				  .component = comp.get(),
+			  },
 			  .boardStorage = boardStorage,
 		  };
 		  addChild(child);
@@ -96,13 +100,26 @@ BoardView::Impl::Impl(const BoardView &args)
 	funcs().onChildRemoved.emplace_back([&](Widget &, const Child &child) {
 		child->customState.get<StateObservable>()->notify(ElementState::removed);
 	});
+	funcs().onInit.emplace_back([](Widget &w) {
+		w.customState.add(w.as<BoardView::Impl>().boardStorage.boardObservable->observe([self = w.weak_from_this()](const squi::Child &child) {
+			if (self.expired()) return;
+			auto w = self.lock();
+			w->addChild(child);
+		}));
+
+		w.customState.add(w.as<BoardView::Impl>().boardStorage.clearObservable->observe([self = w.weak_from_this()]() {
+			if (self.expired()) return;
+			auto w = self.lock();
+			w->getChildren().clear();
+		}));
+	});
 }
 
 void BoardView::Impl::onUpdate() {
 	if (!loadedComponents) {
 		uint32_t idCounter = 0;
 		for (const auto &comp: ComponentStore::components) {
-			const_cast<uint32_t&>(comp.get().id) = idCounter++;
+			const_cast<uint32_t &>(comp.get().id) = idCounter++;
 			auto job = std::thread([&comp, &instance = Window::of(this).engine.instance] {
 				{
 					auto data = Image::Data::fromFile(comp.get().texturePath);

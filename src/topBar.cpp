@@ -57,11 +57,30 @@ TopBar::operator squi::Child() const {
 				Children ret{
 					TopBarButton{
 						.onClick = [storage](GestureDetector::Event) {
-							// std::println("{}", storage->boardStorage.elements.size());
 							GraphDescriptor descriptor{storage->boardStorage};
 						},
 						.child = FontIcon{
 							.icon = 0xF5B0,
+							.size = 24.f,
+							.color = 0xFFFFFFFF,
+						},
+					},
+					TopBarButton{
+						.onClick = [storage](GestureDetector::Event) {
+							storage->boardStorage.load();
+						},
+						.child = FontIcon{
+							.icon = 0xED43,
+							.size = 24.f,
+							.color = 0xFFFFFFFF,
+						},
+					},
+					TopBarButton{
+						.onClick = [storage](GestureDetector::Event) {
+							storage->boardStorage.save();
+						},
+						.child = FontIcon{
+							.icon = 0xEA35,
 							.size = 24.f,
 							.color = 0xFFFFFFFF,
 						},

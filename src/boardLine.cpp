@@ -37,16 +37,16 @@ BoardLine::operator squi::Child() const {
 				.width = static_cast<float>(comp.width) * 20.f,
 				.height = static_cast<float>(comp.height) * 20.f,
 				.customState{
-					Element{
+					elem.value_or(Element{
 						.size{
 							.x = static_cast<int32_t>(comp.width),
 							.y = static_cast<int32_t>(comp.height),
 						},
 						.component = comp,
 						.type = ElementType::Line,
-					},
+					}),
 				},
-				.onInit = [&boardStorage = boardStorage, startPos = startPos](Widget &w) {
+				.onInit = [&boardStorage = boardStorage, startPos = startPos, endPos = endPos](Widget &w) {
 					w.customState.add(Storage{
 						.boardStorage = boardStorage,
 						.startPos{
@@ -63,7 +63,7 @@ BoardLine::operator squi::Child() const {
 								handlePosChange(w);
 							},
 							&w,
-							startPos,
+							endPos.value_or(startPos),
 						},
 					});
 					w.customState.add(StateContainer{squi::Observable<ElementState>::create()});
@@ -110,6 +110,11 @@ BoardLine::operator squi::Child() const {
 							}
 						)
 					);
+
+					if (endPos.has_value()) {
+						handlePosChange(w);
+						w.customState.get<StateObservable>()->notify(ElementState::placed);
+					}
 				},
 				.onUpdate = [](Widget &w) {
 					if (!w.customState.get<Storage>().selected) return;

@@ -1,7 +1,8 @@
 #pragma once
 
-#include "coords.hpp"
 #include "widget.hpp"
+#include "coords.hpp"
+#include "element.hpp"
 
 struct BoardStorage;
 
@@ -13,6 +14,8 @@ struct BoardLine {
     };
 	BoardStorage &boardStorage;
 	Coords startPos{};
+	std::optional<Coords> endPos{};
+	std::optional<Element> elem{};
 
 	struct Storage {
 		// Data
