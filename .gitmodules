@@ -1,3 +1,6 @@
 [submodule "glt"]
 	path = glt
 	url = https://github.com/AleXu224/glt
+[submodule "extern/portable-file-dialogs"]
+	path = extern/portable-file-dialogs
+	url = https://github.com/samangh/portable-file-dialogs/
