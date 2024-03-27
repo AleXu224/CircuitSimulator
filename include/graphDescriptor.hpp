@@ -1,3 +1,5 @@
+#pragma once
+
 #include "boardStorage.hpp"
 #include "element.hpp"
 #include "unordered_set"
@@ -13,6 +15,7 @@ private:
 	void exploreBoard(BoardStorage &);
 	void generateGraphMatrix();
 	void generateIncidenceMatrix();
+	[[nodiscard]] static std::tuple<Eigen::MatrixXf, std::vector<int64_t>> calculateNonzeroPivots(Eigen::MatrixXf &input);
 
 	struct ExpandNodeResult {
 		std::vector<Element> elements{};

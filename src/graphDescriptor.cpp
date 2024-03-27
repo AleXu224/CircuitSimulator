@@ -15,6 +15,47 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	exploreBoard(board);
 	generateGraphMatrix();
 	generateIncidenceMatrix();
+	auto A = Eigen::MatrixXf(incidenceMatrix.topRows(incidenceMatrix.rows() - 1));
+	auto [mat, piv] = GraphDescriptor::calculateNonzeroPivots(A);
+	auto Ar = Eigen::MatrixXf(A(Eigen::all, piv));
+	std::vector<int64_t> indices = [&]() {
+		auto temp = Eigen::Vector<int64_t, Eigen::Dynamic>::LinSpaced(mat.cols(), 0, mat.cols() - 1);
+		return std::vector<int64_t>(temp.begin(), temp.end());
+	}();
+	indices.erase(std::remove_if(indices.begin(), indices.end(), [&](const int &val) mutable -> bool {
+					  auto res = std::equal_range(piv.begin(), piv.end(), val);
+					  return res.first != res.second;
+				  }),
+				  indices.end());
+	auto Ac = A(Eigen::all, indices);
+	std::println("A");
+	std::cout << A << std::endl;
+	std::println("Ar");
+	std::cout << Ar << std::endl;
+	std::println("Ac");
+	std::cout << Ac << std::endl;
+
+	auto D = Ar.inverse() * Ac;
+	std::println("D");
+	std::cout << D << std::endl;
+
+	auto Br = Eigen::MatrixXf(-D.transpose());
+	auto Bc = Eigen::MatrixXf::Identity(Br.rows(), Br.rows());
+
+	auto B = Eigen::MatrixXf(Br.rows(), Br.cols() + Bc.cols());
+	B << Br, Bc;
+	std::println("B");
+	std::cout << B << std::endl;
+
+	std::println("Br");
+	std::cout << Br << std::endl;
+
+	std::println("Bc");
+	std::cout << Bc << std::endl;
+
+	// Kirchhoff I
+	// L = laturi
+
 }
 
 std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
@@ -213,7 +254,45 @@ void GraphDescriptor::generateIncidenceMatrix() {
 		incidenceMatrix.col(i)(static_cast<int64_t>(std::round(graphCol[2]))) = 1;
 		incidenceMatrix.col(i)(static_cast<int64_t>(std::round(graphCol[3]))) = -1;
 	}
-	
+
 	std::println("Incidence Matrix:");
 	std::cout << incidenceMatrix << std::endl;
+}
+
+std::tuple<Eigen::MatrixXf, std::vector<int64_t>> GraphDescriptor::calculateNonzeroPivots(Eigen::MatrixXf &input) {
+	auto ret{input};
+	std::vector<int64_t> nonzeroPivots{};
+	const auto rows = input.rows();
+	const auto columns = input.cols();
+
+	for (int64_t i = 0, j = 0; i < rows && j < columns;) {
+		auto &elem = ret(i, j);
+
+		if (elem == 0) {
+			bool swapped = false;
+			for (auto i2 = i + 1; i2 < rows; i2++) {
+				if (ret(i2, j) != 0) {
+					ret.row(i).swap(ret.row(i2));
+					swapped = true;
+					break;
+				}
+			}
+			if (!swapped) {
+				j++;
+				continue;
+			}
+		}
+
+		for (auto i2 = i + 1; i2 < rows; i2++) {
+			if (ret(i2, j) != 0) {
+				ret.row(i2) += ret.row(i);
+			}
+		}
+
+		nonzeroPivots.emplace_back(j);
+		i++;
+		j++;
+	}
+
+	return {ret, nonzeroPivots};
 }
