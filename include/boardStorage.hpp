@@ -142,6 +142,7 @@ struct BoardStorage {
 							.x = elem.posX,
 							.y = elem.posY,
 						},
+						.rotation = elem.rotation,
 						.component = ComponentStore::components.at(elem.type).get(),
 					},
 					.boardStorage = *this,
