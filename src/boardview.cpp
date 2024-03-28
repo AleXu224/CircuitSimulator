@@ -370,6 +370,7 @@ void BoardView::Impl::drawChildren() {
 	for (auto &nodeIt: boardStorage.nodes) {
 		auto &widget = nodeIt.second.first;
 		if (nodeIt.second.second.empty()) continue;
+		if (nodeIt.second.second.size() == 2) continue;
 		if (!widget) continue;
 
 		widget->draw();
