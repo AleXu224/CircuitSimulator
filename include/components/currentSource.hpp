@@ -2,8 +2,8 @@
 
 #include "../component.hpp"
 
-static const Component voltageSource{
-	.name = "Voltage Source",
+static const Component currentSource{
+	.name = "Current Source",
 	.width = 2,
 	.height = 4,
 	.nodes{
@@ -16,8 +16,8 @@ static const Component voltageSource{
 			.y = 0,
 		},
 	},
-	.texturePath = R"(.\assets\voltageSourceEU.png)",
-	.textureThumbPath = R"(.\assets\voltageSourceEUThumb.png)",
+	.texturePath = R"(.\assets\currentSourceEU.png)",
+	.textureThumbPath = R"(.\assets\currentSourceEUThumb.png)",
 	.uvTopLeft{0.25, 0},
 	.uvBottomRight{0.75, 1},
 };
