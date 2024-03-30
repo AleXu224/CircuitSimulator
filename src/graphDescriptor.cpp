@@ -53,9 +53,70 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	std::println("Bc");
 	std::cout << Bc << std::endl;
 
-	// Kirchhoff I
-	// L = laturi
+	std::vector<int64_t> Lp{};
+	std::vector<int64_t> Le{};
+	std::vector<int64_t> Lj{};
+	for (int64_t i = 0; i < graphMatrix.cols(); i++) {
+		auto val = graphMatrix(1, i);
+		if (val == 2)
+			Le.emplace_back(i);
+		else if (val == 3)
+			Lj.emplace_back(i);
+		else
+			Lp.emplace_back(i);
+	}
+	std::println("Lp");
+	for (const auto &val: Lp) {
+		std::print("{} ", val);
+	}
+	std::print("\n");
+	std::println("Le");
+	for (const auto &val: Le) {
+		std::print("{} ", val);
+	}
+	std::print("\n");
+	std::println("Lj");
+	for (const auto &val: Lj) {
+		std::print("{} ", val);
+	}
+	std::print("\n");
 
+	auto Ap = A(Eigen::all, Lp);
+	auto Ae = A(Eigen::all, Le);
+	auto Aj = A(Eigen::all, Lj);
+	std::println("Ap");
+	std::cout << Ap << std::endl;
+	std::println("Ae");
+	std::cout << Ae << std::endl;
+	std::println("Aj");
+	std::cout << Aj << std::endl;
+
+	// std::vector<int64_t> col_order_B{};
+	// col_order_B.reserve(graphMatrix.cols());
+	// for (const auto &el: piv) col_order_B.emplace_back(el);
+	// for (const auto &el: indices) col_order_B.emplace_back(el);
+	// std::println("col_order_B");
+	// for (const auto &val: col_order_B) {
+	// 	std::print("{} ", val);
+	// }
+	// std::print("\n");
+
+	auto Bp = B(Eigen::all, Lp);
+	auto Be = B(Eigen::all, Le);
+	auto Bj = B(Eigen::all, Lj);
+	// TODO: Up Ue Uj
+	// TODO: params
+	auto params = graphMatrix.row(0);
+	auto R = Eigen::MatrixXf(params(Lp).asDiagonal());
+	auto E = params(Le).transpose();
+	auto J = params(Lj).transpose();
+
+	std::println("R");
+	std::cout << R << std::endl;
+	std::println("E");
+	std::cout << E << std::endl;
+	std::println("J");
+	std::cout << J << std::endl;
 }
 
 std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
