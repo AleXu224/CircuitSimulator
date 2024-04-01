@@ -2,7 +2,6 @@
 #include "box.hpp"
 #include "coords.hpp"
 #include "elementState.hpp"
-#include "observer.hpp"
 #include "stateContainer.hpp"
 #include <algorithm>
 
@@ -39,7 +38,7 @@ BoardSelection::operator squi::Child() const {
 				});
 
                 // Kind of a hack at the moment to not throw when the boardView notifies deletion
-				w.customState.add(StateContainer{squi::Observable<ElementState>::create()});
+				w.customState.add(StateObservable{});
 			},
 			.onArrange = [](Widget &w, vec2 &pos) {
 				auto &storage = w.customState.get<BoardSelection::Storage>();

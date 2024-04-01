@@ -6,12 +6,12 @@
 
 #include "boardElement.hpp"
 #include "components/componentStore.hpp"
+#include "config.hpp"
 #include "connection.hpp"
 #include "coords.hpp"
 #include "element.hpp"
 #include "fstream"
 #include "msdfImage.hpp"
-#include "observer.hpp"
 #include "saveData.hpp"
 #include "vec2.hpp"
 #include "widget.hpp"
@@ -22,29 +22,24 @@
 #include <ranges>
 #include <unordered_map>
 #include <vector>
+#include "utils.hpp"
 
 
 struct BoardStorage {
 	// std::vector<Line> lines{};
-	std::unordered_map<Coords, std::vector<squi::ChildRef>> lineTiles{};
-	std::vector<squi::ChildRef> lines{};
-	std::unordered_map<Coords, std::pair<squi::Child, std::vector<Connection>>> nodes{};
-	std::unordered_map<Coords, squi::ChildRef> elementTiles{};
-	std::vector<squi::ChildRef> elements{};
+	std::vector<ElementData> lines{};
+	std::vector<ElementData> elements{};
 
-	using ObservableType = squi::Observable<const squi::Child &>;
-	using BoardObservable = std::shared_ptr<ObservableType>;
-	BoardObservable boardObservable = ObservableType::create();
+	std::unordered_map<Coords, std::vector<ElementId>> lineTiles{};
+	std::unordered_map<Coords, ElementId> elementTiles{};
 
-	std::shared_ptr<squi::VoidObservable> clearObservable = squi::VoidObservable::create();
+	std::unordered_map<Coords, ConnectionNode> connections{};
 
 	void save() {
 		SaveData ret{};
 		ret.elements.reserve(elements.size());
 		for (const auto &elem: elements) {
-			if (elem.expired()) continue;
-			auto w = elem.lock();
-			auto &e = w->customState.get<Element>();
+			const auto &e = elem.element;
 			ret.elements.emplace_back(ElementSaveData{
 				.id = e.id,
 				.type = e.component.get().id,
@@ -55,16 +50,15 @@ struct BoardStorage {
 		}
 
 		for (const auto &line: lines) {
-			if (line.expired()) continue;
-			auto w = line.lock();
-			auto &e = w->customState.get<Element>();
-			auto &s = w->customState.get<BoardLine::Storage>();
+			const auto &e = line.element;
+			const auto &startPos = e.nodes.at(0) + e.pos;
+			const auto &endPos = e.nodes.at(1) + e.pos;
 			ret.lines.emplace_back(LineSaveData{
 				.id = e.id,
-				.startPosX = s.startPos->x,
-				.startPosY = s.startPos->y,
-				.endPosX = s.endPos->x,
-				.endPosY = s.endPos->y,
+				.startPosX = startPos.x,
+				.startPosY = startPos.y,
+				.endPosX = endPos.x,
+				.endPosY = endPos.y,
 			});
 		}
 
@@ -127,48 +121,73 @@ struct BoardStorage {
 			elementTiles.clear();
 			lines.clear();
 			lineTiles.clear();
-			nodes.clear();
-			clearObservable->notify();
+			connections.clear();
 
 			uint32_t maxId = 0;
 
 			const auto &lineComponent = ComponentStore::components.at(0).get();
 			for (auto &elem: data.elements) {
 				maxId = std::max(maxId, elem.id);
-				boardObservable->notify(BoardElement{
-					.element{
-						.id = elem.id,
-						.pos{
-							.x = elem.posX,
-							.y = elem.posY,
-						},
-						.rotation = elem.rotation,
-						.component = ComponentStore::components.at(elem.type).get(),
-					},
-					.boardStorage = *this,
-					.placed = true,
+
+				const auto &component = ComponentStore::components.at(elem.type).get();
+
+				placeElement(Element{
+					.id = elem.id,
+					.size{Utils::componentSizeWithRotation(component, elem.rotation)},
+					.pos{elem.posX, elem.posY},
+					.rotation = elem.rotation,
+					.nodes{Utils::rotateElement(elem.rotation, component).newNodes},
+					.component = component,
 				});
 			}
 			for (auto &line: data.lines) {
 				maxId = std::max(maxId, line.id);
-				boardObservable->notify(BoardLine{
-					.boardStorage = *this,
-					.startPos{line.startPosX, line.startPosY},
-					.endPos{Coords{line.endPosX, line.endPosY}},
-					.elem{Element{
-						.id = line.id,
-						.size{
-							.x = static_cast<int32_t>(lineComponent.width),
-							.y = static_cast<int32_t>(lineComponent.height),
-						},
-						.component = lineComponent,
-						.type = ElementType::Line,
-					}},
+				auto startPos = Coords{line.startPosX, line.startPosY};
+				auto endPos = Coords{line.endPosX, line.endPosY};
+
+				auto endOffset = (startPos - endPos).abs();
+
+				Coords size = endOffset;
+				if (size.x == 0)
+					size.x++;
+				else
+					size.y++;
+
+				placeLine(Element{
+					.id = line.id,
+					.size{size},
+					.pos{Coords::min(startPos, endPos)},
+					.nodes{{0, 0}, endOffset},
+					.component = lineComponent,
+					.type = ElementType::Line,
 				});
 			}
 
 			Element::idCounter = maxId;
 		}
+	}
+
+	static std::vector<ElementData>::const_iterator lower_bound(const std::vector<ElementData> &rng, ElementId id) {
+		return std::lower_bound(rng.begin(), rng.end(), id, [](const ElementData &e, ElementId id) {
+			return e.element.id < id;
+		});
+	}
+	static std::vector<ElementData>::const_iterator upper_bound(const std::vector<ElementData> &rng, ElementId id) {
+		return std::upper_bound(rng.begin(), rng.end(), id, [](ElementId id, const ElementData &e) {
+			return id < e.element.id;
+		});
+	}
+	[[nodiscard]] std::optional<std::reference_wrapper<const ElementData>> getElement(ElementId id) const {
+		auto it = lower_bound(elements, id);
+		if (it == elements.end()) return {};
+		if (it->element.id == id) return {std::reference_wrapper<const ElementData>(*it)};
+		return {};
+	}
+	[[nodiscard]] std::optional<std::reference_wrapper<const ElementData>> getLine(ElementId id) const {
+		auto it = lower_bound(lines, id);
+		if (it == lines.end()) return {};
+		if (it->element.id == id) return {std::reference_wrapper<const ElementData>(*it)};
+		return {};
 	}
 
 	bool isElementOverlapping(const Element &elem) {
@@ -186,11 +205,11 @@ struct BoardStorage {
 	static squi::Child createNodeChild(const Coords &coords) {
 		return MsdfImage{
 			.widget{
-				.width = 20.f,
-				.height = 20.f,
+				.width = gridSize,
+				.height = gridSize,
 				.onArrange = [coords](squi::Widget & /*w*/, squi::vec2 &pos) {
-					squi::vec2 offset(static_cast<float>(coords.x) * 20.f, static_cast<float>(coords.y) * 20.f);
-					offset -= 10.f;
+					squi::vec2 offset(static_cast<float>(coords.x) * gridSize, static_cast<float>(coords.y) * gridSize);
+					offset -= gridSize / 2.f;
 					pos += offset;
 				},
 			},
@@ -198,121 +217,92 @@ struct BoardStorage {
 		};
 	}
 
-	void placeLine(const squi::ChildRef &child) {
-		if (child.expired()) return;
-		auto &storage = child.lock()->customState.get<BoardLine::Storage>();
-		auto alignment = storage.getAlignment();
-		auto modifiedVal = alignment == BoardLine::Alignment::horizontal ? &Coords::x : &Coords::y;
-		Coords minCoords = Coords::min(storage.startPos, storage.endPos);
-		Coords maxCoords = Coords::max(storage.startPos, storage.endPos);
-		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.x : maxCoords.y - minCoords.y;
-		const auto initialVal = std::invoke(modifiedVal, minCoords);
-
-		for (auto i: std::views::iota(0, distance)) {
-			std::invoke(modifiedVal, minCoords) = initialVal + i;
-			lineTiles[minCoords].emplace_back(child);
+	static void ensureConnectionNode(ConnectionNode &node, const Coords &coords) {
+		if (!node.widget) {
+			node.widget = createNodeChild(coords);
 		}
-		auto &element = child.lock()->customState.get<Element>();
-		nodes[storage.startPos].second.emplace_back(Connection{
-			.nodeIndex = 0,
-			.element = element,
-			.widget = child,
-		});
-		nodes[storage.startPos].first = createNodeChild(storage.startPos);
-		if (*storage.startPos != *storage.endPos) {
-			nodes[storage.endPos].second.emplace_back(Connection{
-				.nodeIndex = 1,
-				.element = element,
-				.widget = child,
-			});
-			nodes[storage.endPos].first = createNodeChild(storage.endPos);
-		}
-		lines.emplace_back(child);
 	}
 
-	void removeLine(const squi::ChildRef &child) {
-		if (child.expired()) return;
-		auto &storage = child.lock()->customState.get<BoardLine::Storage>();
-		auto alignment = storage.getAlignment();
-		auto modifiedVal = alignment == BoardLine::Alignment::horizontal ? &Coords::x : &Coords::y;
-		Coords minCoords = Coords::min(storage.startPos, storage.endPos);
-		Coords maxCoords = Coords::max(storage.startPos, storage.endPos);
-		auto distance = alignment == BoardLine::Alignment::horizontal ? maxCoords.x - minCoords.x : maxCoords.y - minCoords.y;
-		const auto initialVal = std::invoke(modifiedVal, minCoords);
-
-		for (auto i: std::views::iota(0, distance)) {
-			std::invoke(modifiedVal, minCoords) = initialVal + i;
-			std::erase_if(lineTiles[minCoords], [&](auto &val) -> bool {
-				if (val.expired()) return true;
-				return child.lock() == val.lock();
-			});
-		}
-		std::erase_if(nodes[storage.startPos].second, [&](auto &elem) -> bool {
-			if (elem.widget.expired()) return true;
-			return elem.widget.lock() == child.lock();
-		});
-
-		if (*storage.startPos != *storage.endPos) {
-			std::erase_if(nodes[storage.endPos].second, [&](auto &elem) -> bool {
-				if (elem.widget.expired()) return true;
-				return elem.widget.lock() == child.lock();
-			});
-		}
-		lines.erase(
-			std::remove_if(lines.begin(), lines.end(), [&](const squi::ChildRef &elem) {
-				if (elem.expired()) return true;
-				return child.lock() == elem.lock();
-			}),
-			lines.end()
-		);
-	}
-
-	void placeElement(const squi::ChildRef &child) {
-		if (child.expired()) return;
-		auto &elem = child.lock()->customState.get<Element>();
-		auto elemSize = elem.size;
-		for (int i = elem.pos.x; i < elemSize.x + elem.pos.x; i++) {
-			for (int j = elem.pos.y; j < elemSize.y + elem.pos.y; j++) {
-				elementTiles[Coords{i, j}] = child;
+	void placeLine(const Element &elem) {
+		for (auto x: std::views::iota(elem.pos.x) | std::views::take(elem.size.x)) {
+			for (auto y: std::views::iota(elem.pos.y) | std::views::take(elem.size.y)) {
+				lineTiles[Coords{x, y}].emplace_back(elem.id);
 			}
 		}
-		for (const auto &[index, nodeCoords]: elem.nodes | std::views::enumerate) {
-			auto &nodePair = nodes[elem.pos + nodeCoords];
-			if (!nodePair.first) {
-				nodePair.first = createNodeChild(elem.pos + nodeCoords);
-			}
-			nodePair.second.emplace_back(Connection{
-				.nodeIndex = size_t(index),
+
+		for (const auto &[index, node]: elem.nodes | std::views::enumerate) {
+			auto &connectionNode = connections[elem.pos + node];
+			connectionNode.connections.emplace_back(index, elem.id);
+			ensureConnectionNode(connectionNode, node + elem.pos);
+		}
+
+		lines.emplace(
+			upper_bound(lines, elem.id),
+			elem,
+			BoardLine{
+				.boardStorage = *this,
 				.element = elem,
-				.widget = child,
-			});
-		}
-		elements.emplace_back(child);
+			}
+		);
 	}
 
-	void removeElement(const squi::ChildRef &child) {
-		if (child.expired()) return;
-		auto &elem = child.lock()->customState.get<Element>();
-		for (int i = elem.pos.x; i < elem.size.x + elem.pos.x; i++) {
-			for (int j = elem.pos.y; j < elem.size.y + elem.pos.y; j++) {
-				if (auto it = elementTiles.find(Coords{.x = i, .y = j}); it != elementTiles.end()) {
-					elementTiles.erase(it);
-				}
+	void removeLine(ElementId id) {
+		const auto it = lower_bound(lines, id);
+		if (it == lines.end() || it->element.id != id) return;
+		it->widget->reDraw();
+		const auto &elem = it->element;
+		for (auto x: std::views::iota(elem.pos.x) | std::views::take(elem.size.x)) {
+			for (auto y: std::views::iota(elem.pos.y) | std::views::take(elem.size.y)) {
+				auto &tiles = lineTiles[Coords{x, y}];
+				tiles.erase(std::ranges::find(tiles, id));
 			}
 		}
-		for (const auto &nodeCoords: elem.nodes) {
-			auto &vec = nodes[elem.pos + nodeCoords].second;
-			std::erase_if(vec, [&child](auto &elem) -> bool {
-				if (elem.widget.expired()) return true;
-				return elem.widget.lock() == child.lock();
-			});
+
+		for (const auto &[index, node]: elem.nodes | std::views::enumerate) {
+			std::erase(connections[elem.pos + node].connections, Connection{static_cast<size_t>(index), id});
 		}
-		elements.erase(
-			std::remove_if(elements.begin(), elements.end(), [&](const squi::ChildRef &elem) {
-				if (elem.expired()) return true;
-				return child.lock() == elem.lock();
-			}),
-			elements.end()
+
+		lines.erase(it);
+	}
+
+	void placeElement(const Element &elem) {
+		for (auto x: std::views::iota(elem.pos.x) | std::views::take(elem.size.x)) {
+			for (auto y: std::views::iota(elem.pos.y) | std::views::take(elem.size.y)) {
+				elementTiles[Coords{x, y}] = elem.id;
+			}
+		}
+
+		for (const auto &[index, node]: elem.nodes | std::views::enumerate) {
+			auto &connectionNode = connections[elem.pos + node];
+			connectionNode.connections.emplace_back(index, elem.id);
+			ensureConnectionNode(connectionNode, node + elem.pos);
+		}
+
+		elements.emplace(
+			upper_bound(elements, elem.id),
+			elem,
+			BoardElement{
+				.element = elem,
+				.boardStorage = *this,
+			}
 		);
+	}
+
+	void removeElement(ElementId id) {
+		const auto it = lower_bound(elements, id);
+		if (it == elements.end()) return;
+		it->widget->reDraw();
+		const auto &elem = it->element;
+		for (auto x: std::views::iota(elem.pos.x) | std::views::take(elem.size.x)) {
+			for (auto y: std::views::iota(elem.pos.y) | std::views::take(elem.size.y)) {
+				elementTiles.erase(elementTiles.find(Coords{x, y}));
+			}
+		}
+
+		for (const auto &[index, node]: elem.nodes | std::views::enumerate) {
+			std::erase(connections[elem.pos + node].connections, Connection{static_cast<size_t>(index), id});
+		}
+
+		elements.erase(it);
 	}
 };

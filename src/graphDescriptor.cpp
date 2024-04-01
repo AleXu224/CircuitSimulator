@@ -117,6 +117,41 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	std::cout << E << std::endl;
 	std::println("J");
 	std::cout << J << std::endl;
+
+	auto G = R.inverse();
+	auto temp1 = Ap * G * Ap.transpose();
+
+	auto Pb = Eigen::MatrixXf(temp1.rows() + Le.size(), temp1.cols() + Ae.cols());
+	Pb << temp1, Ae,
+		Ae.transpose(), Eigen::MatrixXf::Zero(static_cast<int64_t>(Le.size()), static_cast<int64_t>(Le.size()));
+
+	std::println("Pb");
+	std::cout << Pb << std::endl;
+
+	Eigen::MatrixXf Qb;
+	if (J.size() != 0) {
+		auto _ = Aj * J;
+		Qb.resize(_.rows() + E.rows(), _.cols());
+		Qb << _, E;
+	} else {
+		Qb.resize(static_cast<int64_t>(nodes.size() - 1), E.cols() + 1);
+		Qb << Eigen::MatrixXf::Zero(static_cast<int64_t>(nodes.size() - 1), 1), E;
+	}
+
+	std::println("Qb");
+	std::cout << Qb << std::endl;
+
+	auto Xb = Pb.inverse() * Qb;
+
+	std::println("Xb");
+	std::cout << Xb << std::endl;
+
+	auto V_numeric = Xb.topRows(nodes.size() - 1);
+	auto Ie_numeric_b = Xb.bottomRows(Xb.rows() - (nodes.size() - 1));
+	std::println("V_numeric");
+	std::cout << V_numeric << std::endl;
+	std::println("Ie_numeric_b");
+	std::cout << Ie_numeric_b << std::endl;
 }
 
 std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
@@ -142,11 +177,12 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 	};
 
 	auto crawler = [](this auto &&self, Args &args, const Coords &coords) -> void {
-		auto elems = args.state.board.nodes.at(coords).second;
-		for (auto &elem: elems) {
-			if (elem.widget.expired()) continue;
-			auto widget = elem.widget.lock();
-			auto &elemData = elem.element.get();
+		const auto connections = args.state.board.connections.at(coords).connections;
+		for (const auto &connection: connections) {
+			const auto &elemData = std::invoke([&]() -> const Element & {
+				if (auto _ = args.state.board.getElement(connection.elementId); _.has_value()) return _->get().element;
+				return args.state.board.getLine(connection.elementId)->get().element;
+			});
 			// Early returns:
 			// Both in the case of elements and lines if one is found that has already been explored before
 			// then it is not worth exploring this any further since it is guaranteed that another
@@ -161,8 +197,8 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 						return;
 					}
 					// Set the element connection to the current node
-					for (const auto &connection: args.state.board.nodes.at(coords).second) {
-						if (connection.element.get().id == elemData.id) {
+					for (const auto &connection: args.state.board.connections.at(coords).connections) {
+						if (connection.elementId == elemData.id) {
 							auto [it, _] = args.self.elements.emplace(GraphElement{.element{elemData}});
 							it->nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
 							break;
@@ -183,12 +219,15 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 					}
 					args.locallyExploredLines.emplace(elemData.id);
 					args.ret.lines.push_back(elemData);
-					auto lineStorage = widget->customState.get<BoardLine::Storage>();
 
-					for (const auto &lineNodeCoords: {lineStorage.startPos, lineStorage.endPos}) {
-						if (*lineNodeCoords == coords) continue;
+					const std::initializer_list<Coords> connectionCoords{
+						elemData.nodes.at(0) + elemData.pos,
+						elemData.nodes.at(1) + elemData.pos,
+					};
+					for (const auto &connectionCoord: connectionCoords) {
+						if (connectionCoord == coords) continue;
 
-						self(args, *lineNodeCoords);
+						self(args, connectionCoord);
 						if (args.alreadyExplored) return;
 					}
 				}
@@ -293,7 +332,7 @@ void GraphDescriptor::generateGraphMatrix() {
 	}
 
 	std::sort(vecs.begin(), vecs.end(), [](const auto &a, const auto &b) {
-		return a[1] < b[1];
+		return a[0] < b[0];
 	});
 	graphMatrix.resize(vectorSizeReq, static_cast<int64_t>(vecs.size()));
 	for (const auto &[index, vec]: vecs | std::views::enumerate) {

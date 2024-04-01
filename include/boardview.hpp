@@ -29,15 +29,14 @@ struct BoardView {
 
 	public:
 		BoardStorage boardStorage{};
-		std::shared_ptr<ComponentObservable> componentSelectorObservable = ComponentObservable::create();
+		ComponentObservable componentSelectorObservable{};
 
 	private:
-		std::shared_ptr<ComponentObservable::Observer> observer;
-		std::optional<std::reference_wrapper<const Component>> selectedComponent{};
+		ComponentObservable::Observer observer;
 		std::optional<squi::Child> selectedComponentWidget{};
 		std::optional<squi::Child> selectedLineWidget{};
 		std::optional<squi::Child> selectionWidget{};
-		std::vector<squi::ChildRef> selectedWidgets{};
+		std::vector<ElementId> selectedWidgets{};
 		static constexpr float gridWidth = 20.f;
 
 		void onUpdate() override;
@@ -51,9 +50,8 @@ struct BoardView {
 		void drawChildren() override;
 
 		void clickElement(squi::GestureDetector::Event);
-		Coords coordsToGridRounded(const squi::vec2&) const;
-		Coords coordsToGridFloored(const squi::vec2&) const;
 		void unselectAll();
+		void deleteSelected();
 
 	public:
 		Impl(const BoardView &args);

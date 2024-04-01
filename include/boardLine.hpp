@@ -13,19 +13,15 @@ struct BoardLine {
         horizontal,
     };
 	BoardStorage &boardStorage;
-	Coords startPos{};
-	std::optional<Coords> endPos{};
-	std::optional<Element> elem{};
+	const Element &element;
 
 	struct Storage {
 		// Data
 		BoardStorage &boardStorage;
-		squi::Widget::Stateful<Coords, squi::Widget::StateImpact::RelayoutNeeded> startPos;
-		squi::Widget::Stateful<Coords, squi::Widget::StateImpact::RelayoutNeeded> endPos;
-		bool placed = false;
+		Coords startPos;
+		Coords endPos;
 		bool selected = false;
-
-		[[nodiscard]] Alignment getAlignment() const;
+		ElementId id = 0;
 	};
 
 	operator squi::Child() const;

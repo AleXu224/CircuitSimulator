@@ -1,6 +1,7 @@
 #include "boardLine.hpp"
 #include "boardStorage.hpp"
 #include "components/componentStore.hpp"
+#include "config.hpp"
 #include "element.hpp"
 #include "elementState.hpp"
 #include "gestureDetector.hpp"
@@ -8,91 +9,47 @@
 #include "observer.hpp"
 #include "vec2.hpp"
 #include <GLFW/glfw3.h>
-#include <algorithm>
 #include <cassert>
-#include <stdexcept>
 
 
 using namespace squi;
-
-void handlePosChange(Widget &w) {
-	auto &storage = w.customState.get<BoardLine::Storage>();
-	auto alignment = storage.getAlignment();
-
-	if (alignment == BoardLine::Alignment::horizontal) {
-		w.state.height = 20.f;
-		w.state.width = static_cast<float>(std::abs(storage.startPos->x - storage.endPos->x)) * 20.f;
-	} else {
-		w.state.width = 20.f;
-		w.state.height = static_cast<float>(std::abs(storage.startPos->y - storage.endPos->y)) * 20.f;
-	}
-}
 
 BoardLine::operator squi::Child() const {
 	const auto &comp = ComponentStore::components.at(0).get();
 
 	return GestureDetector{
+		.onUpdate = [](GestureDetector::Event event) {
+			auto &storage = event.widget.customState.get<Storage>();
+			if (storage.selected) {
+				if (GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_DELETE) || GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_BACKSPACE)) {
+					storage.boardStorage.removeLine(storage.id);
+				}
+			}
+		},
 		.child = MsdfImage{
 			.widget{
-				.width = static_cast<float>(comp.width) * 20.f,
-				.height = static_cast<float>(comp.height) * 20.f,
-				.customState{
-					elem.value_or(Element{
-						.size{
-							.x = static_cast<int32_t>(comp.width),
-							.y = static_cast<int32_t>(comp.height),
-						},
-						.component = comp,
-						.type = ElementType::Line,
-					}),
-				},
-				.onInit = [&boardStorage = boardStorage, startPos = startPos, endPos = endPos](Widget &w) {
-					w.customState.add(Storage{
-						.boardStorage = boardStorage,
-						.startPos{
-							[](Widget &w, const auto &) {
-								if (w.customState.get<Storage>().placed) throw std::runtime_error("Cannot replace line while it is placed!");
-								handlePosChange(w);
-							},
-							&w,
-							startPos,
-						},
-						.endPos{
-							[](Widget &w, const auto &) {
-								if (w.customState.get<Storage>().placed) throw std::runtime_error("Cannot replace line while it is placed!");
-								handlePosChange(w);
-							},
-							&w,
-							endPos.value_or(startPos),
-						},
-					});
-					w.customState.add(StateContainer{squi::Observable<ElementState>::create()});
+				.width = static_cast<float>(element.size.x) * 20.f,
+				.height = static_cast<float>(element.size.y) * 20.f,
+				.customState{Storage{
+					.boardStorage = boardStorage,
+					.startPos = element.pos + element.nodes.at(0),
+					.endPos = element.pos + element.nodes.at(1),
+					.selected = false,
+					.id = element.id,
+				}},
+				.onInit = [](Widget &w) {
+					w.customState.add(StateObservable{});
 
 					w.customState.add(
-						w.customState.get<StateObservable>()->observe(
-							[widget = w.weak_from_this(), obs = w.customState.get<StateObservable>()->weak_from_this()](const ElementState &state) {
+						w.customState.get<StateObservable>().observe(
+							[widget = w.weak_from_this()](const ElementState &state) {
 								if (widget.expired()) return;
 								auto &img = widget.lock()->as<MsdfImage::Impl>();
 								auto &storage = img.customState.get<Storage>();
 								switch (state) {
-									case ElementState::placed: {
-										auto delta = *storage.startPos - *storage.endPos;
-										if (delta.x == 0 && delta.y == 0) {
-											img.deleteLater();
-											return;
-										}
-										img.setColor(0xFFFFFFFF);
-										storage.placed = true;
-										storage.boardStorage.placeLine(widget);
-										return;
-									}
-									case ElementState::placing: {
-										img.setColor(squi::Color{1.f, 1.f, 1.f, 0.5f});
-										return;
-									}
 									case ElementState::selected: {
-										img.setColor(0xAAAAFFFF);
 										storage.selected = true;
+										img.setColor(0xAAAAFFFF);
 										return;
 									}
 									case ElementState::unselected: {
@@ -101,33 +58,19 @@ BoardLine::operator squi::Child() const {
 										return;
 									}
 									case ElementState::removed: {
-										if (storage.placed) {
-											storage.boardStorage.removeLine(widget);
-										}
+										storage.boardStorage.removeLine(storage.id);
 										return;
 									}
 								}
 							}
 						)
 					);
-
-					if (endPos.has_value()) {
-						handlePosChange(w);
-						w.customState.get<StateObservable>()->notify(ElementState::placed);
-					}
-				},
-				.onUpdate = [](Widget &w) {
-					if (!w.customState.get<Storage>().selected) return;
-					if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_DELETE) || GestureDetector::getKeyPressedOrRepeat(GLFW_KEY_BACKSPACE)) {
-						w.deleteLater();
-					}
 				},
 				.onLayout = [](Widget &w, auto &, auto &) {
 					auto &storage = w.customState.get<Storage>();
-					auto alignment = storage.getAlignment();
 					auto &image = w.as<MsdfImage::Impl>();
 
-					if (alignment == Alignment::vertical) {
+					if (storage.startPos.x == storage.endPos.x) {
 						image.setUv({0, 0}, {1, 0}, {1, 1}, {0, 1});
 					} else {
 						image.setUv({0, 1}, {0, 0}, {1, 0}, {1, 1});
@@ -135,31 +78,19 @@ BoardLine::operator squi::Child() const {
 				},
 				.onArrange = [](Widget &w, vec2 &pos) {
 					auto &storage = w.customState.get<Storage>();
-					auto alignment = storage.getAlignment();
-					vec2 offset{
-						20.f * static_cast<float>(std::min(storage.startPos->x, storage.endPos->x)),
-						20.f * static_cast<float>(std::min(storage.startPos->y, storage.endPos->y)),
-					};
-					pos += offset;
-					if (alignment == Alignment::vertical) {
-						pos.x -= 10.f;
+					pos += Coords::min(storage.startPos, storage.endPos).toVec() * gridSize;
+
+					if (storage.startPos.x == storage.endPos.x) {
+						pos.x -= gridSize / 2.f;
 					} else {
-						pos.y -= 10.f;
+						pos.y -= gridSize / 2.f;
 					}
 				},
 			},
 			.texture = comp.texture,
-			.color{1},
+			.color{1.f, 1.f, 1.f, 1.f},
 			.uvTopLeft{comp.uvTopLeft},
 			.uvBottomRight{comp.uvBottomRight},
 		},
 	};
-}
-
-BoardLine::Alignment BoardLine::Storage::getAlignment() const {
-	if (startPos->x == endPos->x) {
-		return Alignment::vertical;
-	}
-	assert(startPos->y == endPos->y);
-	return Alignment::horizontal;
 }

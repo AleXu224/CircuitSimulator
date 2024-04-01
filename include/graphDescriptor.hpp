@@ -48,7 +48,7 @@ private:
 		const BoardStorage &board;
 		std::unordered_set<uint32_t> exploredElements{};
 		std::unordered_map<uint32_t, uint32_t> exploredLines{};
-		std::unordered_set<Element, ElementHasher> elementsToTraverse{board.elements.front().lock()->customState.get<Element>()};
+		std::unordered_set<Element, ElementHasher> elementsToTraverse{board.elements.front().element};
 	};
 	std::optional<ExpandNodeResult> expandNode(
 		size_t nodeIndex,

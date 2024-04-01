@@ -97,7 +97,7 @@ TopBar::operator squi::Child() const {
 						},
 						.style = ButtonStyle::Subtle(),
 						.onClick = [storage, &comp](GestureDetector::Event /*event*/) {
-							storage->componentSelectorObserver->notify(comp.get());
+							storage->componentSelectorObserver.notify(comp.get());
 						},
 						.child = Align{
 							.child = MsdfImage{

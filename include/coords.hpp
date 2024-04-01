@@ -1,8 +1,10 @@
 #pragma once
 
 #include "functional"
+#include "vec2.hpp"
 #include <algorithm>
 #include <ostream>
+
 
 struct Coords {
 	int x = 0;
@@ -32,12 +34,30 @@ struct Coords {
 		};
 	}
 
+	[[nodiscard]] Coords abs() const {
+		return {
+			std::abs(x),
+			std::abs(y)
+		};
+	}
+
+	[[nodiscard]] Coords rotate() const {
+		return {y, x};
+	}
+
 	friend std::ostream &operator<<(std::ostream &os, const Coords &rhs) {
 
 		os << "x: " << rhs.x
 		   << " y: " << rhs.y;
 
 		return os;
+	}
+
+	[[nodiscard]] squi::vec2 toVec() const {
+		return {
+			static_cast<float>(x),
+			static_cast<float>(y),
+		};
 	}
 };
 
