@@ -1,6 +1,5 @@
 #pragma once
 
-#include "component.hpp"
 #include "widget.hpp"
 #include "element.hpp"
 

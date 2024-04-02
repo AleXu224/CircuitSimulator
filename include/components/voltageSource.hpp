@@ -20,4 +20,9 @@ static const Component voltageSource{
 	.textureThumbPath = R"(.\assets\voltageSourceEUThumb.png)",
 	.uvTopLeft{0.25, 0},
 	.uvBottomRight{0.75, 1},
+	.properties{
+		ElementProperty{
+			.name{"Voltage"},
+		},
+	},
 };

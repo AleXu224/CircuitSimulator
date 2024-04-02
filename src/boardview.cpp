@@ -12,6 +12,7 @@
 #include "elementState.hpp"
 #include "gestureDetector.hpp"
 #include "image.hpp"
+#include "propertyEditor.hpp"
 #include "samplerUniform.hpp"
 #include "topBar.hpp"
 #include "utils.hpp"
@@ -189,6 +190,13 @@ void BoardView::Impl::onUpdate() {
 			viewOffset += GestureDetector::getMouseDelta();
 			quad.offset = viewOffset;
 			this->reArrange();
+		}
+	}
+
+	if (GestureDetector::isKeyPressedOrRepeat(GLFW_MOUSE_BUTTON_2) && !selectedComponentWidget.has_value() && !selectedLineWidget.has_value()) {
+		if (auto it = boardStorage.elementTiles.find(Utils::screenToGridFloored(GestureDetector::getMousePos(), viewOffset, getPos())); it != boardStorage.elementTiles.end()) {
+			auto elemData = boardStorage.getElement(it->second);
+			Window::of(this).addOverlay(PropertyEditor{.element = elemData->get().element});
 		}
 	}
 
