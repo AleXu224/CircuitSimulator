@@ -2,7 +2,7 @@ cmake_minimum_required(VERSION 3.21)
 set(VCPKG_ROOT "${CMAKE_CURRENT_SOURCE_DIR}/glt/vcpkg")
 set(CMAKE_TOOLCHAIN_FILE "${VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake" CACHE STRING "")
 set(X_VCPKG_APPLOCAL_DEPS_INSTALL ON)
-project(CircuitSimulator VERSION 0.1.0 LANGUAGES C CXX)
+project(CircuitSimulator VERSION 0.2.0 LANGUAGES C CXX)
 set(CMAKE_CXX_STANDARD 23)
 set(CMAKE_EXPORT_COMPILE_COMMANDS 1)
 
