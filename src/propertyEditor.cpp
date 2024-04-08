@@ -6,11 +6,11 @@
 #include "container.hpp"
 #include "expander.hpp"
 #include "gestureDetector.hpp"
+#include "numberBox.hpp"
 #include "observer.hpp"
 #include "row.hpp"
 #include "scrollableFrame.hpp"
 #include "stack.hpp"
-#include "textBox.hpp"
 
 
 using namespace squi;
@@ -19,7 +19,7 @@ struct PropertyInput {
 	// Args
 	squi::Widget::Args widget{};
     std::string_view name;
-    float value;
+    float &value;
 
 	struct Storage {
 		// Data
@@ -36,8 +36,11 @@ struct PropertyInput {
 					.text{name},
 				},
                 Container{},
-                TextBox{
-                    .text = std::to_string(value),
+                NumberBox{
+					.value = value,
+					.onChange = [&value = value](float newVal){
+						value = newVal;
+					},
                 },
 			},
 		};
@@ -48,6 +51,7 @@ struct Content {
 	// Args
 	squi::Widget::Args widget{};
 	const Element &element;
+	std::vector<float> &values;
 
 	struct Storage {
 		// Data
@@ -80,11 +84,13 @@ struct Content {
 						},
 					};
 					ret.reserve(ret.size() + element.component.get().properties.size());
+					values.reserve(element.component.get().properties.size());
 
 					for (const auto &[prop, value]: std::views::zip(element.component.get().properties, element.propertiesValues)) {
+						auto &_ = values.emplace_back(value);
 						ret.emplace_back(PropertyInput{
                             .name = prop.name,
-                            .value = value,
+                            .value = _,
                         });
 					}
 
@@ -98,7 +104,7 @@ struct Content {
 struct ButtonBar {
 	// Args
 	squi::Widget::Args widget{};
-	VoidObservable closeObs;
+	Observable<bool> closeObs;
 
 	struct Storage {
 		// Data
@@ -117,7 +123,7 @@ struct ButtonBar {
 						.width = Size::Expand,
 					},
 					.onClick = [closeObs = closeObs](auto) {
-						closeObs.notify();
+						closeObs.notify(true);
 					},
 					.child = Align{
 						.child = Text{
@@ -133,7 +139,7 @@ struct ButtonBar {
 					.text{"Cancel"},
 					.style = ButtonStyle::Standard(),
 					.onClick = [closeObs = closeObs](auto) {
-						closeObs.notify();
+						closeObs.notify(false);
 					},
 				},
 			},
@@ -142,31 +148,36 @@ struct ButtonBar {
 };
 
 PropertyEditor::operator squi::Child() const {
-	VoidObservable closeObs{};
+	auto storage = std::make_shared<Storage>(Storage{.element = element});
 
 	return Stack{
 		.widget{
-			.onInit = [closeObs = closeObs](Widget &w) {
-				w.customState.add(closeObs.observe([&w]() {
+			.onInit = [storage](Widget &w) {
+				w.customState.add(storage->closeObs.observe([&w, storage](bool save) {
+					if (save) {
+						for (auto [val, prop]: std::views::zip(storage->values, storage->element.propertiesValues)) {
+							const_cast<float&>(prop) = val;
+						}
+					}
 					w.deleteLater();
 				}));
 			},
 		},
 		.children{
 			GestureDetector{
-				.onClick = [closeObs = closeObs](GestureDetector::Event /*event*/) {
-					closeObs.notify();
+				.onClick = [storage](GestureDetector::Event /*event*/) {
+					storage->closeObs.notify(false);
 				},
-                .onUpdate = [closeObs](auto){
+				.onUpdate = [storage](auto) {
                     if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) {
-						closeObs.notify();
-                        return;
+						storage->closeObs.notify(false);
+						return;
 					}
 
                     if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ENTER)) {
-                        closeObs.notify();
+						storage->closeObs.notify(true);
 					}
-                },
+				},
 				.child = Box{
 					.color{0.f, 0.f, 0.f, 0.5f},
 				},
@@ -183,8 +194,8 @@ PropertyEditor::operator squi::Child() const {
 					.borderRadius{8.f},
 					.child = Column{
 						.children{
-							Content{.element = element},
-							ButtonBar{.closeObs = closeObs},
+							Content{.element = element, .values = storage->values},
+							ButtonBar{.closeObs = storage->closeObs},
 						},
 					},
 

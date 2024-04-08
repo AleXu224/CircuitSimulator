@@ -46,7 +46,13 @@ struct BoardStorage {
 				.posX = e.pos.x,
 				.posY = e.pos.y,
 				.rotation = e.rotation,
+				.propertyIndex = static_cast<uint32_t>(ret.properties.size()),
+				.propertyCount = static_cast<uint32_t>(e.propertiesValues.size()),
 			});
+
+			for (const auto& prop: e.propertiesValues) {
+				ret.properties.emplace_back(prop);
+			}
 		}
 
 		for (const auto &line: lines) {
@@ -138,6 +144,10 @@ struct BoardStorage {
 					.rotation = elem.rotation,
 					.nodes{Utils::rotateElement(elem.rotation, component).newNodes},
 					.component = component,
+					.propertiesValues = std::vector<float>(
+						data.properties.begin() + elem.propertyIndex,
+						data.properties.begin() + elem.propertyIndex + elem.propertyCount
+					),
 				});
 			}
 			for (auto &line: data.lines) {

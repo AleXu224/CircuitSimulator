@@ -13,6 +13,8 @@ struct ElementSaveData {
 	int32_t posX;
 	int32_t posY;
 	uint32_t rotation;
+	uint32_t propertyIndex;
+	uint32_t propertyCount;
 };
 
 struct LineSaveData {
@@ -22,6 +24,11 @@ struct LineSaveData {
 	int32_t endPosX;
 	int32_t endPosY;
 };
+
+using PropertySaveData = float;
+// struct PropertySaveData {
+// 	float value;
+// };
 
 template<class T>
 void addBytes(std::vector<std::byte> &to, const T &from) {
@@ -34,14 +41,17 @@ void addBytes(std::vector<std::byte> &to, const T &from) {
 struct SaveData {
 	std::vector<ElementSaveData> elements{};
 	std::vector<LineSaveData> lines{};
+	std::vector<PropertySaveData> properties{};
 
-	static constexpr uint8_t saveDataVersion = 1;
+	static constexpr uint8_t saveDataVersion = 2;
 	static constexpr size_t headerSize = 4 /*Tag*/ +
 										 1 /*version*/ +
 										 8 /*ElementSaveData sizeof*/ +
 										 8 /*LineSaveData sizeof*/ +
+										 8 /*Property sizeof*/ +
 										 8 /*Element count*/ +
-										 8 /*Line count*/;
+										 8 /*Line count*/ +
+										 8 /*Property count*/;
 
 	[[nodiscard]] std::vector<std::byte>
 	serialize() const {
@@ -55,8 +65,10 @@ struct SaveData {
 		addBytes(data, saveDataVersion);
 		addBytes(data, static_cast<uint64_t>(sizeof(ElementSaveData)));
 		addBytes(data, static_cast<uint64_t>(sizeof(LineSaveData)));
+		addBytes(data, static_cast<uint64_t>(sizeof(PropertySaveData)));
 		addBytes(data, static_cast<uint64_t>(elements.size()));
 		addBytes(data, static_cast<uint64_t>(lines.size()));
+		addBytes(data, static_cast<uint64_t>(properties.size()));
 
 		for (const auto &element: elements) {
 			addBytes(data, element);
@@ -64,6 +76,10 @@ struct SaveData {
 
 		for (const auto &line: lines) {
 			addBytes(data, line);
+		}
+
+		for (const auto &property: properties) {
+			addBytes(data, property);
 		}
 
 		return data;
@@ -88,10 +104,12 @@ struct SaveData {
 
 		const auto saveElementSize = *std::bit_cast<uint64_t *>(&bytes[5]);
 		const auto saveLineSize = *std::bit_cast<uint64_t *>(&bytes[13]);
-		const auto saveElementCount = *std::bit_cast<uint64_t *>(&bytes[21]);
-		const auto saveLineCount = *std::bit_cast<uint64_t *>(&bytes[29]);
+		const auto savePropertySize = *std::bit_cast<uint64_t *>(&bytes[21]);
+		const auto saveElementCount = *std::bit_cast<uint64_t *>(&bytes[29]);
+		const auto saveLineCount = *std::bit_cast<uint64_t *>(&bytes[37]);
+		const auto savePropertyCount = *std::bit_cast<uint64_t *>(&bytes[45]);
 
-		const auto totalExpectedSize = headerSize + saveElementSize * saveElementCount + saveLineSize * saveLineCount;
+		const auto totalExpectedSize = headerSize + saveElementSize * saveElementCount + saveLineSize * saveLineCount + savePropertySize * savePropertyCount;
 		if (totalExpectedSize != bytes.size()) {
 			std::println("Unexpected save file size, file might be corrupted");
 			return false;
@@ -100,13 +118,25 @@ struct SaveData {
 		elements.reserve(saveElementCount);
 		lines.reserve(saveLineCount);
 
+		int64_t offset = headerSize;
+
 		auto elementsData = std::span<const std::byte>(
-			bytes.begin() + headerSize,
+			bytes.begin() + offset,
 			saveElementSize * saveElementCount
 		);
+
+		offset += static_cast<int64_t>(elementsData.size());
+		
 		auto linesData = std::span<const std::byte>(
-			bytes.begin() + headerSize + static_cast<int64_t>(saveElementSize * saveElementCount),
+			bytes.begin() + offset,
 			saveLineSize * saveLineCount
+		);
+
+		offset += static_cast<int64_t>(linesData.size());
+
+		auto propertiesData = std::span<const std::byte>(
+			bytes.begin() + offset,
+			savePropertySize * savePropertyCount
 		);
 
 		for (auto it = elementsData.begin(); it != elementsData.end(); it += static_cast<int64_t>(saveElementSize)) {
@@ -123,6 +153,14 @@ struct SaveData {
 			}
 			auto &elem = lines.emplace_back();
 			memcpy(&elem, &*it, saveLineSize);
+		}
+
+		for (auto it = propertiesData.begin(); it != propertiesData.end(); it += static_cast<int64_t>(savePropertySize)) {
+			if ((it + (static_cast<int64_t>(savePropertySize) - 1)) == propertiesData.end()) {
+				throw std::runtime_error("Bad maths, memcpy would read memory outside the byte array");
+			}
+			auto &prop = properties.emplace_back();
+			memcpy(&prop, &*it, savePropertySize);
 		}
 
 		return true;
