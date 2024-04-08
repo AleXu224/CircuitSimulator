@@ -18,8 +18,8 @@ using namespace squi;
 struct PropertyInput {
 	// Args
 	squi::Widget::Args widget{};
-    std::string_view name;
-    float &value;
+	std::string_view name;
+	float &value;
 
 	struct Storage {
 		// Data
@@ -35,13 +35,13 @@ struct PropertyInput {
 				Text{
 					.text{name},
 				},
-                Container{},
-                NumberBox{
+				Container{},
+				NumberBox{
 					.value = value,
-					.onChange = [&value = value](float newVal){
+					.onChange = [&value = value](float newVal) {
 						value = newVal;
 					},
-                },
+				},
 			},
 		};
 	}
@@ -79,7 +79,7 @@ struct Content {
 				.children = std::invoke([&]() {
 					Children ret{
 						Text{
-							.text{std::format("{} Properties", element.component.get().name)},
+							.text{std::format("{} {} Properties", element.component.get().name, element.id)},
 							.fontSize = 20.f,
 						},
 					};
@@ -89,9 +89,9 @@ struct Content {
 					for (const auto &[prop, value]: std::views::zip(element.component.get().properties, element.propertiesValues)) {
 						auto &_ = values.emplace_back(value);
 						ret.emplace_back(PropertyInput{
-                            .name = prop.name,
-                            .value = _,
-                        });
+							.name = prop.suffix.empty() ? prop.name : std::format("{} ({})", prop.name, prop.suffix),
+							.value = _,
+						});
 					}
 
 					return ret;
@@ -156,7 +156,7 @@ PropertyEditor::operator squi::Child() const {
 				w.customState.add(storage->closeObs.observe([&w, storage](bool save) {
 					if (save) {
 						for (auto [val, prop]: std::views::zip(storage->values, storage->element.propertiesValues)) {
-							const_cast<float&>(prop) = val;
+							const_cast<float &>(prop) = val;
 						}
 					}
 					w.deleteLater();
@@ -169,12 +169,12 @@ PropertyEditor::operator squi::Child() const {
 					storage->closeObs.notify(false);
 				},
 				.onUpdate = [storage](auto) {
-                    if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) {
+					if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE)) {
 						storage->closeObs.notify(false);
 						return;
 					}
 
-                    if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ENTER)) {
+					if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ENTER)) {
 						storage->closeObs.notify(true);
 					}
 				},

@@ -4,6 +4,7 @@
 
 static const Component voltageSource{
 	.name = "Voltage Source",
+	.prefix = "V",
 	.width = 2,
 	.height = 4,
 	.nodes{
@@ -23,6 +24,7 @@ static const Component voltageSource{
 	.properties{
 		ElementProperty{
 			.name{"Voltage"},
+			.suffix{"V"},
 		},
 	},
 };

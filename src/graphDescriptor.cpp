@@ -106,7 +106,9 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	auto Bj = B(Eigen::all, Lj);
 	// TODO: Up Ue Uj
 	// TODO: params
-	auto params = graphMatrix.row(0);
+	auto params = graphMatrix.row(4);
+	std::println("params");
+	std::cout << params << std::endl;
 	auto R = Eigen::MatrixXf(params(Lp).asDiagonal());
 	auto E = params(Le).transpose();
 	auto J = params(Lj).transpose();
@@ -132,10 +134,10 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	if (J.size() != 0) {
 		auto _ = Aj * J;
 		Qb.resize(_.rows() + E.rows(), _.cols());
-		Qb << _, E;
+		Qb << -_, -E;
 	} else {
 		Qb.resize(static_cast<int64_t>(nodes.size() - 1), E.cols() + 1);
-		Qb << Eigen::MatrixXf::Zero(static_cast<int64_t>(nodes.size() - 1), 1), E;
+		Qb << -Eigen::MatrixXf::Zero(static_cast<int64_t>(nodes.size() - 1), 1), -E;
 	}
 
 	std::println("Qb");
@@ -316,7 +318,7 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 
 void GraphDescriptor::generateGraphMatrix() {
 	constexpr size_t maxNodeConnections = 2;
-	const size_t vectorSizeReq = 1 /*Element id*/ + 1 /*Component id*/ + maxNodeConnections;
+	const size_t vectorSizeReq = 1 /*Element id*/ + 1 /*Component id*/ + maxNodeConnections + 1 /*Property value*/;
 	std::vector<Eigen::VectorXf> vecs{};
 	vecs.reserve(elements.size());
 	for (const auto &element: elements) {
@@ -328,6 +330,7 @@ void GraphDescriptor::generateGraphMatrix() {
 		for (auto &connection: element.nodes | std::views::take(maxNodeConnections)) {
 			ret[index++] = static_cast<float>(connection);
 		}
+		ret[4] = element.element.propertiesValues.front();
 		vecs.emplace_back(std::move(ret));
 	}
 

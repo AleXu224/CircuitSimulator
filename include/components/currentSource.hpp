@@ -4,6 +4,7 @@
 
 static const Component currentSource{
 	.name = "Current Source",
+	.prefix = "I",
 	.width = 2,
 	.height = 4,
 	.nodes{
@@ -23,6 +24,7 @@ static const Component currentSource{
 	.properties{
 		ElementProperty{
 			.name{"Current"},
+			.suffix{"A"},
 		},
 	},
 };

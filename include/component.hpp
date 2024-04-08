@@ -11,6 +11,7 @@
 struct Component {
 	uint32_t id = 0;
 	std::string name;
+	std::string prefix;
 	uint32_t width;
 	uint32_t height;
 	std::vector<Coords> nodes{};

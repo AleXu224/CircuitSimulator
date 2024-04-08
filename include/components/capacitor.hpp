@@ -4,6 +4,7 @@
 
 static const Component capacitor{
 	.name = "Capacitor",
+	.prefix = "C",
 	.width = 2,
 	.height = 3,
 	.nodes{
@@ -21,6 +22,7 @@ static const Component capacitor{
 	.properties{
 		ElementProperty{
 			.name{"Capacitance"},
+			.suffix{"C"},
 		},
 	},
 };

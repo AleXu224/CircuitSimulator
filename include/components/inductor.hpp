@@ -4,6 +4,7 @@
 
 static const Component inductor{
 	.name = "Inductor",
+	.prefix = "L",
 	.width = 2,
 	.height = 4,
 	.nodes{
@@ -21,6 +22,7 @@ static const Component inductor{
 	.properties{
 		ElementProperty{
 			.name{"Inductance"},
+			.suffix{"H"},
 		},
 	},
 };

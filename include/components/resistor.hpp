@@ -4,6 +4,7 @@
 
 static const Component resistor{
 	.name = "Resistor",
+	.prefix = "R",
 	.width = 2,
 	.height = 4,
 	.nodes{
@@ -21,6 +22,7 @@ static const Component resistor{
 	.properties{
 		ElementProperty{
 			.name{"Resistance"},
+			.suffix{"Ω"},
 		},
 	},
 };

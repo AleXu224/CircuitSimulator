@@ -4,4 +4,5 @@
 
 struct ElementProperty {
     std::string name;
+    std::string suffix;
 };

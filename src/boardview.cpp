@@ -265,18 +265,24 @@ void BoardView::Impl::updateChildren() {
 squi::vec2 BoardView::Impl::layoutChildren(squi::vec2 /*maxSize*/, squi::vec2 /*minSize*/, ShouldShrink /*shouldShrink*/) {
 	for (auto &child: getChildren()) {
 		if (!child) continue;
+		child->state.parent = this;
+		child->state.root = state.root;
 		child->layout(vec2::infinity(), vec2{}, {false, false});
 	}
 	const auto _ = {boardStorage.lines, boardStorage.elements};
 	for (const auto &line: _ | std::views::join) {
 		const auto &widget = line.widget;
 		if (!widget) continue;
+		widget->state.parent = this;
+		widget->state.root = state.root;
 		widget->layout(vec2::infinity(), {});
 	}
 	for (auto &[key, val]: boardStorage.connections) {
 		auto &widget = val.widget;
 		if (val.connections.empty()) continue;
 		if (!widget) continue;
+		widget->state.parent = this;
+		widget->state.root = state.root;
 
 		widget->layout(vec2::infinity(), {}, {false, false});
 	}
@@ -287,18 +293,24 @@ void BoardView::Impl::arrangeChildren(squi::vec2 &pos) {
 	const auto newPos = pos + viewOffset;
 	for (auto &child: getChildren()) {
 		if (!child) continue;
+		child->state.parent = this;
+		child->state.root = state.root;
 		child->arrange(newPos);
 	}
 	const auto _ = {boardStorage.lines, boardStorage.elements};
 	for (const auto &line: _ | std::views::join) {
 		const auto &widget = line.widget;
 		if (!widget) continue;
+		widget->state.parent = this;
+		widget->state.root = state.root;
 		widget->arrange(newPos);
 	}
 	for (auto &[key, val]: boardStorage.connections) {
 		auto &widget = val.widget;
 		if (val.connections.empty()) continue;
 		if (!widget) continue;
+		widget->state.parent = this;
+		widget->state.root = state.root;
 
 		widget->arrange(newPos);
 	}
@@ -309,12 +321,16 @@ void BoardView::Impl::drawChildren() {
 	instance.pushScissor(getRect());
 	for (auto &child: getChildren()) {
 		if (!child) continue;
+		child->state.parent = this;
+		child->state.root = state.root;
 		child->draw();
 	}
 	const auto _ = {boardStorage.lines, boardStorage.elements};
 	for (const auto &line: _ | std::views::join) {
 		const auto &widget = line.widget;
 		if (!widget) continue;
+		widget->state.parent = this;
+		widget->state.root = state.root;
 		widget->draw();
 	}
 	for (auto &[key, val]: boardStorage.connections) {
@@ -322,6 +338,8 @@ void BoardView::Impl::drawChildren() {
 		if (val.connections.empty()) continue;
 		if (val.connections.size() == 2) continue;
 		if (!widget) continue;
+		widget->state.parent = this;
+		widget->state.root = state.root;
 
 		widget->draw();
 	}

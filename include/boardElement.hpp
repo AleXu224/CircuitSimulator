@@ -16,6 +16,7 @@ struct BoardElement {
 		bool selected = false;
 		BoardStorage &boardStorage;
 		uint32_t elementId = 0;
+		float lastValue = 0.f;
 	};
 
 	operator squi::Child() const;
