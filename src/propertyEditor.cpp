@@ -21,11 +21,15 @@ struct PropertyInput {
 	std::string_view name;
 	float &value;
 
+
 	struct Storage {
 		// Data
 	};
 
 	operator squi::Child() const {
+		Observable<bool> focusObs{};
+		VoidObservable selectAllObs{};
+
 		return Row{
 			.widget{
 				.height = Size::Shrink,
@@ -37,9 +41,19 @@ struct PropertyInput {
 				},
 				Container{},
 				NumberBox{
+					.widget{
+						.afterInit = [focusObs, selectAllObs](Widget &) {
+							focusObs.notify(true);
+							selectAllObs.notify();
+						},
+					},
 					.value = value,
 					.onChange = [&value = value](float newVal) {
 						value = newVal;
+					},
+					.controller{
+						.focus = focusObs,
+						.selectAll = selectAllObs,
 					},
 				},
 			},
