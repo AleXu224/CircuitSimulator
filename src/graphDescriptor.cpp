@@ -136,7 +136,7 @@ GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 		Qb.resize(_.rows() + E.rows(), _.cols());
 		Qb << -_, -E;
 	} else {
-		Qb.resize(static_cast<int64_t>(nodes.size() - 1), E.cols() + 1);
+		Qb.resize(static_cast<int64_t>(nodes.size() - 1) + E.rows(), 1);
 		Qb << -Eigen::MatrixXf::Zero(static_cast<int64_t>(nodes.size() - 1), 1), -E;
 	}
 
