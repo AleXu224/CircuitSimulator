@@ -173,7 +173,7 @@ struct BoardStorage {
 				});
 			}
 
-			Element::idCounter = maxId;
+			Element::idCounter = maxId + 1;
 		}
 	}
 
