@@ -6,6 +6,7 @@
 #include "components/node.hpp"
 #include "components/capacitor.hpp"
 #include "components/inductor.hpp"
+#include "components/ground.hpp"
 
 const std::vector<std::reference_wrapper<const Component>> ComponentStore::components{
     conductor,
@@ -13,6 +14,7 @@ const std::vector<std::reference_wrapper<const Component>> ComponentStore::compo
     voltageSource,
     currentSource,
     resistor,
+    ground,
     capacitor,
     inductor,
 };

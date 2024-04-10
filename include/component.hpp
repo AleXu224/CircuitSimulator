@@ -8,12 +8,19 @@
 #include <vector>
 
 
+enum class ElementType {
+	Line,
+	Ground,
+	Other,
+};
+
 struct Component {
 	uint32_t id = 0;
 	std::string name;
-	std::string prefix;
+	std::string prefix{};
 	uint32_t width;
 	uint32_t height;
+	ElementType type = ElementType::Other;
 	std::vector<Coords> nodes{};
 	std::string texturePath;
 	std::string textureThumbPath;

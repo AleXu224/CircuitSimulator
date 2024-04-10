@@ -31,12 +31,11 @@ BoardLinePlacer::operator squi::Child() const {
 						else
 							size.y++;
 
-						storage.boardStorage.placeLine(Element{
+						storage.boardStorage.get().placeLine(Element{
 							.size{size},
 							.pos{Coords::min(storage.startPos, storage.endPos)},
 							.nodes{{0, 0}, endOffset},
 							.component = storage.component,
-							.type = ElementType::Line,
 						});
 
 						storage.startPos = storage.endPos;
@@ -95,10 +94,10 @@ BoardLinePlacer::operator squi::Child() const {
 					}
 				},
 			},
-			.texture = component.texture,
+			.texture = component.get().texture,
 			.color{1.f, 1.f, 1.f, 0.5f},
-			.uvTopLeft{component.uvTopLeft},
-			.uvBottomRight{component.uvBottomRight},
+			.uvTopLeft{component.get().uvTopLeft},
+			.uvBottomRight{component.get().uvBottomRight},
 		},
 	};
 }

@@ -6,18 +6,18 @@ struct BoardLinePlacer {
     // Args
     squi::Widget::Args widget{};
     Coords startPos{};
-	BoardStorage &boardStorage;
-	const Component &component;
-	const squi::vec2 &viewOffset;
+	std::reference_wrapper<BoardStorage> boardStorage;
+	std::reference_wrapper<const Component> component;
+	std::reference_wrapper<const squi::vec2> viewOffset;
 	squi::ChildRef board;
 
 	struct Storage {
         // Data
 		Coords startPos;
         Coords endPos{startPos};
-		BoardStorage &boardStorage;
-		const Component &component;
-		const squi::vec2 &viewOffset;
+		std::reference_wrapper<BoardStorage> boardStorage;
+		std::reference_wrapper<const Component> component;
+		std::reference_wrapper<const squi::vec2> viewOffset;
 		squi::ChildRef board;
 	};
 

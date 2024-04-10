@@ -4,12 +4,6 @@
 #include "coords.hpp"
 #include <vector>
 
-
-enum class ElementType {
-	Line,
-	Other,
-};
-
 using ElementId = uint32_t;
 
 struct Element {
@@ -19,7 +13,6 @@ struct Element {
 	uint32_t rotation = 0;
 	std::vector<Coords> nodes{};
 	std::reference_wrapper<const Component> component;
-	ElementType type = ElementType::Other;
 	std::vector<float> propertiesValues{};
 
 	bool operator==(const Element &other) const {

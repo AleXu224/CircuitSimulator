@@ -181,7 +181,7 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 	auto crawler = [](this auto &&self, Args &args, const Coords &coords) -> void {
 		const auto connections = args.state.board.connections.at(coords).connections;
 		for (const auto &connection: connections) {
-			const auto &elemData = std::invoke([&]() -> const Element & {
+			const Element &elemData = std::invoke([&]() -> const Element & {
 				if (auto _ = args.state.board.getElement(connection.elementId); _.has_value()) return _->get().element;
 				return args.state.board.getLine(connection.elementId)->get().element;
 			});
@@ -189,7 +189,7 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 			// Both in the case of elements and lines if one is found that has already been explored before
 			// then it is not worth exploring this any further since it is guaranteed that another
 			// node exploration has already explored this or will do so in the future
-			switch (elemData.type) {
+			switch (elemData.component.get().type) {
 				case ElementType::Other: {
 					args.ret.elements.push_back(elemData);
 					if (elemData.id == args.graphElement.element.id) continue;
@@ -210,6 +210,7 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 
 					continue;
 				}
+				case ElementType::Ground:
 				case ElementType::Line: {
 					if (args.state.exploredLines.contains(elemData.id)) {
 						args.alreadyExplored = true;
@@ -222,10 +223,28 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 					args.locallyExploredLines.emplace(elemData.id);
 					args.ret.lines.push_back(elemData);
 
-					const std::initializer_list<Coords> connectionCoords{
-						elemData.nodes.at(0) + elemData.pos,
-						elemData.nodes.at(1) + elemData.pos,
-					};
+					const std::vector<Coords> connectionCoords = [&]() -> std::vector<Coords> {
+						switch (elemData.component.get().type) {
+							case ElementType::Line: {
+								return {
+									elemData.nodes.at(0) + elemData.pos,
+									elemData.nodes.at(1) + elemData.pos,
+								};
+							}
+							case ElementType::Ground: {
+								std::vector<Coords> ret{};
+								for (const auto &elem: args.state.board.elements) {
+									if (elem.element.component.get().type != ElementType::Ground) continue;
+									for (const auto &node: elem.element.nodes) {
+										ret.emplace_back(node + elem.element.pos);
+									}
+								}
+								return ret;
+							}
+							default:
+								std::unreachable();
+						}
+					}();
 					for (const auto &connectionCoord: connectionCoords) {
 						if (connectionCoord == coords) continue;
 
@@ -248,6 +267,21 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 	ExplorationState state{
 		.board = board,
 	};
+
+	// Will add the first ground element to the list of elementsToTraverse
+	// this is to ensure that the ground node always gets the index 0
+	auto groundIt = std::find_if(
+		board.elements.begin(),
+		board.elements.end(),
+		[](const ElementData &elem) {
+			return elem.element.component.get().type == ElementType::Ground;
+		}
+	);
+	state.elementsToTraverse.insert(
+		groundIt == board.elements.end()
+			? board.elements.begin()->element
+			: groundIt->element
+	);
 
 	while (!state.elementsToTraverse.empty()) {
 		// Copy the elements to traverse since the container will need to be modified while iterating through it
@@ -297,6 +331,17 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 				);
 			}
 		}
+	}
+
+	{
+		const auto it = std::find_if(
+			elements.begin(),
+			elements.end(),
+			[](const GraphElement &elem) {
+				return elem.element.component.get().type == ElementType::Ground;
+			}
+		);
+		if (it != elements.end()) elements.erase(it);
 	}
 
 	auto endTime = std::chrono::steady_clock::now();

@@ -169,7 +169,6 @@ struct BoardStorage {
 					.pos{Coords::min(startPos, endPos)},
 					.nodes{{0, 0}, endOffset},
 					.component = lineComponent,
-					.type = ElementType::Line,
 				});
 			}
 
