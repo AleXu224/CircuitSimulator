@@ -82,50 +82,54 @@ BoardElement::operator squi::Child() const {
 					.uvBottomRight{element.component.get().uvBottomRight},
 				},
 				// Element name Text
-				Text{
-					.widget{
-						.onArrange = [storage](Widget &w, vec2 &pos) {
-							const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
-							pos += vec2(static_cast<float>(elem.element.pos.x), static_cast<float>(elem.element.pos.y)) * gridSize;
+				element.component.get().prefix.empty()//
+					? Child{}
+					: Text{
+						  .widget{
+							  .onArrange = [storage](Widget &w, vec2 &pos) {
+								  const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
+								  pos += vec2(static_cast<float>(elem.element.pos.x), static_cast<float>(elem.element.pos.y)) * gridSize;
 
-							if (elem.element.rotation % 2 == 1) {
-								pos.x += static_cast<float>(elem.element.size.x) * gridSize * 0.5f - w.getSize().x / 2.f;
-								pos.y -= w.getSize().y;
-							} else {
-								pos.x += static_cast<float>(elem.element.size.x) * gridSize + 2.f;
-								pos.y += static_cast<float>(elem.element.size.y) * gridSize * 0.5f - w.getSize().y;
-							}
-						},
-					},
-					.text = std::format("{}{}", element.component.get().prefix, element.id),
-					.fontSize = 14.f,
-				},
+								  if (elem.element.rotation % 2 == 1) {
+									  pos.x += static_cast<float>(elem.element.size.x) * gridSize * 0.5f - w.getSize().x / 2.f;
+									  pos.y -= w.getSize().y;
+								  } else {
+									  pos.x += static_cast<float>(elem.element.size.x) * gridSize + 2.f;
+									  pos.y += static_cast<float>(elem.element.size.y) * gridSize * 0.5f - w.getSize().y;
+								  }
+							  },
+						  },
+						  .text = std::format("{}{}", element.component.get().prefix, element.id),
+						  .fontSize = 14.f,
+					  },
 				// Value text
-				Text{
-					.widget{
-						.onUpdate = [storage](Widget &w) {
-							const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
-							auto &text = w.as<Text::Impl>();
-							if (storage->lastValue != elem.element.propertiesValues.front()) {
-								text.setText(std::format("{}{}", elem.element.propertiesValues.front(), elem.element.component.get().properties.front().suffix));
-							}
-						},
-						.onArrange = [storage](Widget &w, vec2 &pos) {
-							const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
-							pos += vec2(static_cast<float>(elem.element.pos.x), static_cast<float>(elem.element.pos.y)) * gridSize;
+				element.propertiesValues.empty()//
+					? Child{}
+					: Text{
+						  .widget{
+							  .onUpdate = [storage](Widget &w) {
+								  const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
+								  auto &text = w.as<Text::Impl>();
+								  if (storage->lastValue != elem.element.propertiesValues.front()) {
+									  text.setText(std::format("{}{}", elem.element.propertiesValues.front(), elem.element.component.get().properties.front().suffix));
+								  }
+							  },
+							  .onArrange = [storage](Widget &w, vec2 &pos) {
+								  const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
+								  pos += vec2(static_cast<float>(elem.element.pos.x), static_cast<float>(elem.element.pos.y)) * gridSize;
 
-							if (elem.element.rotation % 2 == 1) {
-								pos.x += static_cast<float>(elem.element.size.x) * gridSize * 0.5f - w.getSize().x / 2.f;
-								pos.y += static_cast<float>(elem.element.size.y) * gridSize;
-							} else {
-								pos.x += static_cast<float>(elem.element.size.x) * gridSize + 2.f;
-								pos.y += static_cast<float>(elem.element.size.y) * gridSize * 0.5f;
-							}
-						},
-					},
-					.text = std::format("{}{}", element.propertiesValues.front(), element.component.get().properties.front().suffix),
-					.fontSize = 14.f,
-				},
+								  if (elem.element.rotation % 2 == 1) {
+									  pos.x += static_cast<float>(elem.element.size.x) * gridSize * 0.5f - w.getSize().x / 2.f;
+									  pos.y += static_cast<float>(elem.element.size.y) * gridSize;
+								  } else {
+									  pos.x += static_cast<float>(elem.element.size.x) * gridSize + 2.f;
+									  pos.y += static_cast<float>(elem.element.size.y) * gridSize * 0.5f;
+								  }
+							  },
+						  },
+						  .text = std::format("{}{}", element.propertiesValues.front(), element.component.get().properties.front().suffix),
+						  .fontSize = 14.f,
+					  },
 			},
 		},
 	};
