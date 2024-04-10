@@ -11,7 +11,9 @@
 #include "components/componentStore.hpp"
 #include "elementState.hpp"
 #include "gestureDetector.hpp"
+#include "graphDescriptor.hpp"
 #include "image.hpp"
+#include "nodeIndexDisplay.hpp"
 #include "propertyEditor.hpp"
 #include "samplerUniform.hpp"
 #include "topBar.hpp"
@@ -63,6 +65,8 @@ BoardView::Impl::Impl(const BoardView &args)
 			  selectedComponentWidget.reset();
 		  }
 
+		  clearNodeIndexes();
+
 		  Child child = BoardElementPlacer{
 			  .boardStorage = boardStorage,
 			  .component = comp.get(),
@@ -72,7 +76,25 @@ BoardView::Impl::Impl(const BoardView &args)
 
 		  addChild(child);
 		  selectedComponentWidget = child;
-	  })) {}
+	  })) {
+	customState.add(args.onRun.observe([&self = *this]() {
+		self.unselectAll();
+		self.clearNodeIndexes();
+
+		GraphDescriptor descriptor{self.boardStorage};
+
+		for (const auto &elem: descriptor.elements) {
+			for (const auto &[nodeIndex, nodeCoords]: std::views::zip(elem.nodes, elem.element.nodes)) {
+				auto &_ = self.nodeIndexes.emplace_back(NodeIndexDisplay{
+					.nodeIndex = nodeIndex,
+					.pos = nodeCoords + elem.element.pos,
+				});
+
+				self.addChild(_);
+			}
+		}
+	}));
+}
 
 void BoardView::Impl::onUpdate() {
 	// Initialize component textures
@@ -153,13 +175,15 @@ void BoardView::Impl::onUpdate() {
 			for (auto x: std::views::iota(minPos.x, maxPos.x)) {
 				for (auto y: std::views::iota(minPos.y, maxPos.y)) {
 					if (auto it = boardStorage.elementTiles.find(Coords{x, y}); it != boardStorage.elementTiles.end()) {
-						selectedWidgets.emplace_back(it->second);
-						auto elem = boardStorage.getElement(it->second);
-						elem->get().widget->customState.get<StateObservable>().notify(ElementState::selected);
+						for (auto elemId: it->second) {
+							selectedWidgets.insert(elemId);
+							auto elem = boardStorage.getElement(elemId);
+							elem->get().widget->customState.get<StateObservable>().notify(ElementState::selected);
+						}
 					}
 					if (auto it = boardStorage.lineTiles.find(Coords{x, y}); it != boardStorage.lineTiles.end()) {
 						for (auto &line: it->second) {
-							selectedWidgets.emplace_back(line);
+							selectedWidgets.insert(line);
 							auto elem = boardStorage.getLine(line);
 							elem->get().widget->customState.get<StateObservable>().notify(ElementState::selected);
 						}
@@ -195,21 +219,21 @@ void BoardView::Impl::onUpdate() {
 
 	if (GestureDetector::isKeyPressedOrRepeat(GLFW_MOUSE_BUTTON_2) && !selectedComponentWidget.has_value() && !selectedLineWidget.has_value()) {
 		if (auto it = boardStorage.elementTiles.find(Utils::screenToGridFloored(GestureDetector::getMousePos(), viewOffset, getPos())); it != boardStorage.elementTiles.end()) {
-			auto elemData = boardStorage.getElement(it->second);
-			Window::of(this).addOverlay(PropertyEditor{.element = elemData->get().element});
+			const auto &elemIdList = it->second;
+
+			auto closestElement = boardStorage.getClosestElementData(
+				elemIdList,
+				Utils::screenToGridRounded(GestureDetector::getMousePos(), viewOffset, getPos())
+			);
+
+			if (closestElement.has_value()) {
+				Window::of(this).addOverlay(PropertyEditor{.element = closestElement->get().element});
+			}
 		}
 	}
 
 	// Escape or Mouse2 -> unselect all selected elements
 	if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE) || GestureDetector::isKeyPressedOrRepeat(GLFW_MOUSE_BUTTON_2)) {
-		if (selectedComponentWidget.has_value()) {
-			selectedComponentWidget.value()->deleteLater();
-			selectedComponentWidget.reset();
-		}
-		if (selectedLineWidget.has_value()) {
-			selectedLineWidget.value()->deleteLater();
-			selectedLineWidget.reset();
-		}
 		unselectAll();
 	}
 
@@ -319,12 +343,6 @@ void BoardView::Impl::arrangeChildren(squi::vec2 &pos) {
 void BoardView::Impl::drawChildren() {
 	auto &instance = Window::of(this).engine.instance;
 	instance.pushScissor(getRect());
-	for (auto &child: getChildren()) {
-		if (!child) continue;
-		child->state.parent = this;
-		child->state.root = state.root;
-		child->draw();
-	}
 	const auto _ = {boardStorage.lines, boardStorage.elements};
 	for (const auto &line: _ | std::views::join) {
 		const auto &widget = line.widget;
@@ -342,6 +360,12 @@ void BoardView::Impl::drawChildren() {
 		widget->state.root = state.root;
 
 		widget->draw();
+	}
+	for (auto &child: getChildren()) {
+		if (!child) continue;
+		child->state.parent = this;
+		child->state.root = state.root;
+		child->draw();
 	}
 	instance.popScissor();
 }
@@ -369,24 +393,41 @@ void BoardView::Impl::clickElement(squi::GestureDetector::Event /*event*/) {
 			auto line = boardStorage.getLine(id);
 			const auto &widget = line->get().widget;
 			widget->customState.get<StateObservable>().notify(ElementState::selected);
-			selectedWidgets.emplace_back(id);
+			selectedWidgets.insert(id);
 		}
 	} else if (
 		auto itBoard = boardStorage.elementTiles.find(Utils::screenToGridFloored(GestureDetector::getMousePos(), viewOffset, getPos()));
-		itBoard != boardStorage.elementTiles.end()
+		itBoard != boardStorage.elementTiles.end() && !itBoard->second.empty()
 	) {
-		auto elem = boardStorage.getElement(itBoard->second);
-		auto widget = elem->get().widget;
-		widget->customState.get<StateObservable>().notify(ElementState::selected);
-		// FIXME: widgets can be added multiple times
-		selectedWidgets.emplace_back(itBoard->second);
+		auto closestElement = boardStorage.getClosestElementData(itBoard->second, roundedGridPos);
+		if (closestElement.has_value()) {
+			const auto id = closestElement->get().element.id;
+			const auto it = selectedWidgets.find(id);
+			if (it == selectedWidgets.end()) {
+				// If the element wasn't selected then select it
+				closestElement->get().widget->customState.get<StateObservable>().notify(ElementState::selected);
+				selectedWidgets.insert(id);
+			} else {
+				// Otherwise unselect it
+				closestElement->get().widget->customState.get<StateObservable>().notify(ElementState::unselected);
+				selectedWidgets.erase(it);
+			}
+		}
 	} else {
 		unselectAll();
 	}
 }
 
 void BoardView::Impl::unselectAll() {
-	for (auto &id: selectedWidgets) {
+	if (selectedComponentWidget.has_value()) {
+		selectedComponentWidget.value()->deleteLater();
+		selectedComponentWidget.reset();
+	}
+	if (selectedLineWidget.has_value()) {
+		selectedLineWidget.value()->deleteLater();
+		selectedLineWidget.reset();
+	}
+	for (const auto &id: selectedWidgets) {
 		auto elem = boardStorage.getElement(id);
 		auto line = boardStorage.getLine(id);
 		if (!elem.has_value() && !line.has_value()) continue;
@@ -400,7 +441,10 @@ void BoardView::Impl::unselectAll() {
 }
 
 void BoardView::Impl::deleteSelected() {
-	for (auto &id: selectedWidgets) {
+	if (!selectedWidgets.empty()) {
+		clearNodeIndexes();
+	}
+	for (const auto &id: selectedWidgets) {
 		auto elem = boardStorage.getElement(id);
 		auto line = boardStorage.getLine(id);
 		if (!elem.has_value() && !line.has_value()) continue;
@@ -411,6 +455,13 @@ void BoardView::Impl::deleteSelected() {
 		widget->customState.get<StateObservable>().notify(ElementState::removed);
 	}
 	selectedWidgets.clear();
+}
+
+void BoardView::Impl::clearNodeIndexes() {
+	for (const auto &nodeIndex: nodeIndexes) {
+		nodeIndex->deleteLater();
+	}
+	nodeIndexes.clear();
 }
 
 BoardView::Impl::~Impl() {
@@ -426,6 +477,7 @@ BoardView::operator squi::Child() const {
 		.children{
 			TopBar{
 				.componentSelectorObserver = ret->componentSelectorObservable,
+				.onRun = onRun,
 				.boardStorage = ret->boardStorage,
 			},
 			ret,

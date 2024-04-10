@@ -31,7 +31,7 @@ struct BoardStorage {
 	std::vector<ElementData> elements{};
 
 	std::unordered_map<Coords, std::vector<ElementId>> lineTiles{};
-	std::unordered_map<Coords, ElementId> elementTiles{};
+	std::unordered_map<Coords, std::vector<ElementId>> elementTiles{};
 
 	std::unordered_map<Coords, ConnectionNode> connections{};
 
@@ -211,6 +211,28 @@ struct BoardStorage {
 		return false;
 	}
 
+	[[nodiscard]] std::optional<std::reference_wrapper<const ElementData>> getClosestElementData(const std::vector<ElementId> &ids, const Coords &coords) const {
+		struct Info {
+			std::optional<std::reference_wrapper<const ElementData>> data;
+			float distance = std::numeric_limits<float>::max();
+		} ret;
+
+		for (const auto &id: ids) {
+			auto _ = getElement(id);
+			if (!_.has_value()) continue;
+			const auto &data = _->get();
+
+			const auto pos = data.element.pos.toVec() + data.element.size.toVec() / 2.f;
+			const auto distance = (coords.toVec() - pos).length();
+			if (distance < ret.distance) {
+				ret.data = std::ref(data);
+				ret.distance = distance;
+			}
+		}
+
+		return ret.data;
+	}
+
 	static squi::Child createNodeChild(const Coords &coords) {
 		return MsdfImage{
 			.widget{
@@ -277,7 +299,7 @@ struct BoardStorage {
 	void placeElement(const Element &elem) {
 		for (auto x: std::views::iota(elem.pos.x) | std::views::take(elem.size.x)) {
 			for (auto y: std::views::iota(elem.pos.y) | std::views::take(elem.size.y)) {
-				elementTiles[Coords{x, y}] = elem.id;
+				elementTiles[Coords{x, y}].emplace_back(elem.id);
 			}
 		}
 
@@ -304,7 +326,8 @@ struct BoardStorage {
 		const auto &elem = it->element;
 		for (auto x: std::views::iota(elem.pos.x) | std::views::take(elem.size.x)) {
 			for (auto y: std::views::iota(elem.pos.y) | std::views::take(elem.size.y)) {
-				elementTiles.erase(elementTiles.find(Coords{x, y}));
+				auto &tiles = elementTiles[Coords{x, y}];
+				tiles.erase(std::ranges::find(tiles, id));
 			}
 		}
 

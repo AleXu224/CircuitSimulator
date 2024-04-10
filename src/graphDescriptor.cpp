@@ -167,7 +167,6 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 		ExpandNodeResult ret{};
 		bool alreadyExplored = false;
 		std::unordered_set<uint32_t> locallyExploredLines{};
-		std::unordered_set<uint32_t> locallyExploredElements{};
 		const GraphElement &graphElement;
 		ExplorationState &state;
 		GraphDescriptor &self;
@@ -203,10 +202,10 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 						if (connection.elementId == elemData.id) {
 							auto [it, _] = args.self.elements.emplace(GraphElement{.element{elemData}});
 							it->nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
+							args.state.exploredConnections.insert(coords);
 							break;
 						}
 					}
-					args.locallyExploredElements.emplace(elemData.id);
 
 					continue;
 				}
@@ -306,7 +305,11 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 			});
 
 			for (const auto &[index, node]: elem.nodes | std::views::enumerate) {
-				auto res = expandNode(index, node + elem.pos, *graphElement, state);
+				const auto coords = node + elem.pos;
+				if (state.exploredConnections.contains(coords)) {
+					continue;
+				}
+				auto res = expandNode(index, coords, *graphElement, state);
 				// Check if the expanded node has been explored before
 				if (!res.has_value()) {
 					continue;

@@ -46,6 +46,7 @@ private:
 	struct ExplorationState {
 		uint32_t nodeIdCounter = 0;
 		const BoardStorage &board;
+		std::unordered_set<Coords> exploredConnections{};
 		std::unordered_set<uint32_t> exploredElements{};
 		std::unordered_map<uint32_t, uint32_t> exploredLines{};
 		std::unordered_set<Element, ElementHasher> elementsToTraverse{};

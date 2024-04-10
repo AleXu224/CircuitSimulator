@@ -10,11 +10,13 @@
 #include "widget.hpp"
 #include <functional>
 #include <optional>
+#include <unordered_set>
 
 
 struct BoardView {
 	// Args
 	squi::Widget::Args widget;
+	squi::VoidObservable onRun;
 	using Quad = Engine::BoardBackgroundQuad;
 	using Pipeline = Engine::Pipeline<Quad::Vertex>;
 
@@ -36,7 +38,8 @@ struct BoardView {
 		std::optional<squi::Child> selectedComponentWidget{};
 		std::optional<squi::Child> selectedLineWidget{};
 		std::optional<squi::Child> selectionWidget{};
-		std::vector<ElementId> selectedWidgets{};
+		std::unordered_set<ElementId> selectedWidgets{};
+		std::vector<squi::Child> nodeIndexes{};
 		static constexpr float gridWidth = 20.f;
 
 		void onUpdate() override;
@@ -52,6 +55,7 @@ struct BoardView {
 		void clickElement(squi::GestureDetector::Event);
 		void unselectAll();
 		void deleteSelected();
+		void clearNodeIndexes();
 
 	public:
 		Impl(const BoardView &args);

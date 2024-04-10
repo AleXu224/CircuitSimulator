@@ -10,7 +10,6 @@
 #include "widget.hpp"
 #include <functional>
 #include <print>
-#include "graphDescriptor.hpp"
 
 
 using namespace squi;
@@ -53,11 +52,11 @@ TopBar::operator squi::Child() const {
 		.borderPosition = squi::Box::BorderPosition::inset,
 		.child = Row{
 			.spacing = 2.f,
-			.children = std::invoke([&storage] {
+			.children = std::invoke([&storage, onRun = onRun] {
 				Children ret{
 					TopBarButton{
-						.onClick = [storage](GestureDetector::Event) {
-							GraphDescriptor descriptor{storage->boardStorage};
+						.onClick = [onRun = onRun](GestureDetector::Event) {
+							onRun.notify();
 						},
 						.child = FontIcon{
 							.icon = 0xF5B0,

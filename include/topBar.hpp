@@ -8,6 +8,7 @@ struct TopBar {
     // Args
 	squi::Widget::Args widget{};
 	squi::Observable<std::reference_wrapper<const Component>> componentSelectorObserver{};
+	squi::VoidObservable onRun;
 	BoardStorage& boardStorage;
 
 
