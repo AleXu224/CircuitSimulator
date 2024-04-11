@@ -240,6 +240,19 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 		);
 		if (it != elements.end()) elements.erase(it);
 	}
+	
+	{
+		// Erase all elements that have all their connections at the same node
+		std::vector<decltype(elements)::iterator> elemsToErase{};
+		for (auto it = elements.begin(); it != elements.end(); it++) {
+			if (std::ranges::adjacent_find(it->nodes, std::ranges::not_equal_to()) == it->nodes.end()) {
+				elemsToErase.emplace_back(it);
+			}
+		}
+		for (auto &it: elemsToErase) {
+			elements.erase(it);
+		}
+	}
 
 	auto endTime = std::chrono::steady_clock::now();
 	std::println("----------------");
