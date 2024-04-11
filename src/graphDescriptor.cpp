@@ -13,147 +13,33 @@
 
 GraphDescriptor::GraphDescriptor(BoardStorage &board) {
 	exploreBoard(board);
-	generateGraphMatrix();
-	generateIncidenceMatrix();
-	auto A = Eigen::MatrixXf(incidenceMatrix.topRows(incidenceMatrix.rows() - 1));
-	auto [mat, piv] = GraphDescriptor::calculateNonzeroPivots(A);
-	auto Ar = Eigen::MatrixXf(A(Eigen::all, piv));
-	std::vector<int64_t> indices = [&]() {
-		auto temp = Eigen::Vector<int64_t, Eigen::Dynamic>::LinSpaced(mat.cols(), 0, mat.cols() - 1);
-		return std::vector<int64_t>(temp.begin(), temp.end());
-	}();
-	indices.erase(std::remove_if(indices.begin(), indices.end(), [&](const int &val) mutable -> bool {
-					  auto res = std::equal_range(piv.begin(), piv.end(), val);
-					  return res.first != res.second;
-				  }),
-				  indices.end());
-	auto Ac = A(Eigen::all, indices);
-	std::println("A");
-	std::cout << A << std::endl;
-	std::println("Ar");
-	std::cout << Ar << std::endl;
-	std::println("Ac");
-	std::cout << Ac << std::endl;
+}
 
-	auto D = Ar.inverse() * Ac;
-	std::println("D");
-	std::cout << D << std::endl;
-
-	auto Br = Eigen::MatrixXf(-D.transpose());
-	auto Bc = Eigen::MatrixXf::Identity(Br.rows(), Br.rows());
-
-	auto B = Eigen::MatrixXf(Br.rows(), Br.cols() + Bc.cols());
-	B << Br, Bc;
-	std::println("B");
-	std::cout << B << std::endl;
-
-	std::println("Br");
-	std::cout << Br << std::endl;
-
-	std::println("Bc");
-	std::cout << Bc << std::endl;
-
-	std::vector<int64_t> Lp{};
-	std::vector<int64_t> Le{};
-	std::vector<int64_t> Lj{};
-	for (int64_t i = 0; i < graphMatrix.cols(); i++) {
-		auto val = graphMatrix(1, i);
-		if (val == 2)
-			Le.emplace_back(i);
-		else if (val == 3)
-			Lj.emplace_back(i);
-		else
-			Lp.emplace_back(i);
-	}
-	std::println("Lp");
-	for (const auto &val: Lp) {
-		std::print("{} ", val);
-	}
-	std::print("\n");
-	std::println("Le");
-	for (const auto &val: Le) {
-		std::print("{} ", val);
-	}
-	std::print("\n");
-	std::println("Lj");
-	for (const auto &val: Lj) {
-		std::print("{} ", val);
-	}
-	std::print("\n");
-
-	auto Ap = A(Eigen::all, Lp);
-	auto Ae = A(Eigen::all, Le);
-	auto Aj = A(Eigen::all, Lj);
-	std::println("Ap");
-	std::cout << Ap << std::endl;
-	std::println("Ae");
-	std::cout << Ae << std::endl;
-	std::println("Aj");
-	std::cout << Aj << std::endl;
-
-	// std::vector<int64_t> col_order_B{};
-	// col_order_B.reserve(graphMatrix.cols());
-	// for (const auto &el: piv) col_order_B.emplace_back(el);
-	// for (const auto &el: indices) col_order_B.emplace_back(el);
-	// std::println("col_order_B");
-	// for (const auto &val: col_order_B) {
-	// 	std::print("{} ", val);
-	// }
-	// std::print("\n");
-
-	auto Bp = B(Eigen::all, Lp);
-	auto Be = B(Eigen::all, Le);
-	auto Bj = B(Eigen::all, Lj);
-	// TODO: Up Ue Uj
-	// TODO: params
-	auto params = graphMatrix.row(4);
-	std::println("params");
-	std::cout << params << std::endl;
-	auto R = Eigen::MatrixXf(params(Lp).asDiagonal());
-	auto E = params(Le).transpose();
-	auto J = params(Lj).transpose();
-
-	std::println("R");
-	std::cout << R << std::endl;
-	std::println("E");
-	std::cout << E << std::endl;
-	std::println("J");
-	std::cout << J << std::endl;
-
-	auto G = R.inverse();
-	auto temp1 = Ap * G * Ap.transpose();
-
-	auto Pb = Eigen::MatrixXf(temp1.rows() + Le.size(), temp1.cols() + Ae.cols());
-	Pb << temp1, Ae,
-		Ae.transpose(), Eigen::MatrixXf::Zero(static_cast<int64_t>(Le.size()), static_cast<int64_t>(Le.size()));
-
-	std::println("Pb");
-	std::cout << Pb << std::endl;
-
-	Eigen::MatrixXf Qb;
-	if (J.size() != 0) {
-		auto _ = Aj * J;
-		Qb.resize(_.rows() + E.rows(), _.cols());
-		Qb << -_, -E;
-	} else {
-		Qb.resize(static_cast<int64_t>(nodes.size() - 1) + E.rows(), 1);
-		Qb << -Eigen::MatrixXf::Zero(static_cast<int64_t>(nodes.size() - 1), 1), -E;
+std::vector<Connection> getAdditionalConnections(const BoardStorage &board, const Coords &coords, const std::vector<Connection> &connections) {
+	std::vector<Connection> additionalConnections{};
+	if (!board.lineTiles.contains(coords)) return additionalConnections;
+	const auto &lines = board.lineTiles.at(coords);
+	for (const auto &lineId: lines) {
+		bool hasLine = false;
+		for (const auto &connection: connections) {
+			if (connection.elementId == lineId) {
+				hasLine = true;
+				break;
+			}
+		}
+		if (!hasLine) {
+			auto lineIt = board.getLine(lineId);
+			if (!lineIt.has_value()) continue;
+			for (const auto &[nodeIndex, _]: lineIt->get().element.nodes | std::views::enumerate) {
+				additionalConnections.emplace_back(Connection{
+					.nodeIndex = nodeIndex,
+					.elementId = lineId,
+				});
+			}
+		}
 	}
 
-	std::println("Qb");
-	std::cout << Qb << std::endl;
-
-	auto Xb = Pb.inverse() * Qb;
-
-	std::println("Xb");
-	std::cout << Xb << std::endl;
-
-	auto V_numeric = Xb.topRows(nodes.size() - 1);
-	auto Ie_numeric_b = Xb.bottomRows(Xb.rows() - (nodes.size() - 1));
-	std::println("V_numeric");
-	std::cout << V_numeric << std::endl;
-	std::println("Ie_numeric_b");
-	std::cout << Ie_numeric_b << std::endl;
+	return additionalConnections;
 }
 
 std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
@@ -178,8 +64,16 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 	};
 
 	auto crawler = [](this auto &&self, Args &args, const Coords &coords) -> void {
-		const auto connections = args.state.board.connections.at(coords).connections;
-		for (const auto &connection: connections) {
+		const auto connections = {
+			args.state.board.connections.at(coords).connections,
+			getAdditionalConnections(
+				args.state.board,
+				coords,
+				args.state.board.connections.at(coords).connections
+			),
+		};
+
+		for (const auto &connection: std::views::join(connections)) {
 			const Element &elemData = std::invoke([&]() -> const Element & {
 				if (auto _ = args.state.board.getElement(connection.elementId); _.has_value()) return _->get().element;
 				return args.state.board.getLine(connection.elementId)->get().element;
@@ -362,88 +256,4 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 		}
 		std::println("{} #{} {}", element.element.component.get().name, element.element.id, vectorNodeIds.str());
 	}
-}
-
-void GraphDescriptor::generateGraphMatrix() {
-	constexpr size_t maxNodeConnections = 2;
-	const size_t vectorSizeReq = 1 /*Element id*/ + 1 /*Component id*/ + maxNodeConnections + 1 /*Property value*/;
-	std::vector<Eigen::VectorXf> vecs{};
-	vecs.reserve(elements.size());
-	for (const auto &element: elements) {
-		Eigen::VectorXf ret{};
-		ret.resize(vectorSizeReq);
-		ret[0] = static_cast<float>(element.element.id);
-		ret[1] = static_cast<float>(element.element.component.get().id);
-		int64_t index = 2;
-		for (auto &connection: element.nodes | std::views::take(maxNodeConnections)) {
-			ret[index++] = static_cast<float>(connection);
-		}
-		ret[4] = element.element.propertiesValues.front();
-		vecs.emplace_back(std::move(ret));
-	}
-
-	std::sort(vecs.begin(), vecs.end(), [](const auto &a, const auto &b) {
-		return a[0] < b[0];
-	});
-	graphMatrix.resize(vectorSizeReq, static_cast<int64_t>(vecs.size()));
-	for (const auto &[index, vec]: vecs | std::views::enumerate) {
-		graphMatrix.col(index) = vec;
-	}
-
-	std::println("Graph Matrix:");
-	std::cout << graphMatrix << std::endl;
-}
-
-void GraphDescriptor::generateIncidenceMatrix() {
-	incidenceMatrix.resize(
-		static_cast<int64_t>(nodes.size()),
-		static_cast<int64_t>(elements.size())
-	);
-	incidenceMatrix.fill(0);
-	for (int64_t i = 0; i < graphMatrix.cols(); i++) {
-		const auto &graphCol = graphMatrix.col(i);
-		incidenceMatrix.col(i)(static_cast<int64_t>(std::round(graphCol[2]))) = 1;
-		incidenceMatrix.col(i)(static_cast<int64_t>(std::round(graphCol[3]))) = -1;
-	}
-
-	std::println("Incidence Matrix:");
-	std::cout << incidenceMatrix << std::endl;
-}
-
-std::tuple<Eigen::MatrixXf, std::vector<int64_t>> GraphDescriptor::calculateNonzeroPivots(Eigen::MatrixXf &input) {
-	auto ret{input};
-	std::vector<int64_t> nonzeroPivots{};
-	const auto rows = input.rows();
-	const auto columns = input.cols();
-
-	for (int64_t i = 0, j = 0; i < rows && j < columns;) {
-		auto &elem = ret(i, j);
-
-		if (elem == 0) {
-			bool swapped = false;
-			for (auto i2 = i + 1; i2 < rows; i2++) {
-				if (ret(i2, j) != 0) {
-					ret.row(i).swap(ret.row(i2));
-					swapped = true;
-					break;
-				}
-			}
-			if (!swapped) {
-				j++;
-				continue;
-			}
-		}
-
-		for (auto i2 = i + 1; i2 < rows; i2++) {
-			if (ret(i2, j) != 0) {
-				ret.row(i2) += ret.row(i);
-			}
-		}
-
-		nonzeroPivots.emplace_back(j);
-		i++;
-		j++;
-	}
-
-	return {ret, nonzeroPivots};
 }

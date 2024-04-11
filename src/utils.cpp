@@ -81,3 +81,41 @@ Utils::RotatedElementData Utils::rotateElement(uint32_t rotation, const Componen
 
 	return ret;
 }
+
+std::tuple<Eigen::MatrixXf, std::vector<int64_t>> Utils::calculateNonzeroPivots(Eigen::MatrixXf &input) {
+	auto ret{input};
+	std::vector<int64_t> nonzeroPivots{};
+	const auto rows = input.rows();
+	const auto columns = input.cols();
+
+	for (int64_t i = 0, j = 0; i < rows && j < columns;) {
+		auto &elem = ret(i, j);
+
+		if (elem == 0) {
+			bool swapped = false;
+			for (auto i2 = i + 1; i2 < rows; i2++) {
+				if (ret(i2, j) != 0) {
+					ret.row(i).swap(ret.row(i2));
+					swapped = true;
+					break;
+				}
+			}
+			if (!swapped) {
+				j++;
+				continue;
+			}
+		}
+
+		for (auto i2 = i + 1; i2 < rows; i2++) {
+			if (ret(i2, j) != 0) {
+				ret.row(i2) += ret.row(i);
+			}
+		}
+
+		nonzeroPivots.emplace_back(j);
+		i++;
+		j++;
+	}
+
+	return {ret, nonzeroPivots};
+}

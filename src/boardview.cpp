@@ -9,12 +9,16 @@
 #include "compiledShaders/boardBackgroundvert.hpp"
 #include "component.hpp"
 #include "components/componentStore.hpp"
+#include "dcResultsViewer.hpp"
+#include "dcSimulation.hpp"
 #include "elementState.hpp"
 #include "gestureDetector.hpp"
 #include "graphDescriptor.hpp"
 #include "image.hpp"
 #include "nodeIndexDisplay.hpp"
 #include "propertyEditor.hpp"
+#include "resultsDisplay.hpp"
+#include "row.hpp"
 #include "samplerUniform.hpp"
 #include "topBar.hpp"
 #include "utils.hpp"
@@ -40,9 +44,10 @@ BoardView::Impl::Impl(const BoardView &args)
 
 			  if (selectedLineWidget.has_value()) {
 				  const auto clickCoords = Utils::screenToGridRounded(GestureDetector::getMousePos(), viewOffset, getPos());
-				  bool shouldStop = !boardStorage.connections[clickCoords].connections.empty();
+				  const bool connectionExists = !boardStorage.connections[clickCoords].connections.empty();
+				  const bool lineExists = !boardStorage.lineTiles[clickCoords].empty();
 				  selectedLineWidget.value()->customState.get<VoidObserver>().notifyOthers();
-				  if (shouldStop) {
+				  if (connectionExists || lineExists) {
 					  selectedLineWidget.value()->deleteLater();
 					  selectedLineWidget.reset();
 				  }
@@ -65,7 +70,7 @@ BoardView::Impl::Impl(const BoardView &args)
 			  selectedComponentWidget.reset();
 		  }
 
-		  clearNodeIndexes();
+		  hideResults();
 
 		  Child child = BoardElementPlacer{
 			  .boardStorage = boardStorage,
@@ -79,7 +84,7 @@ BoardView::Impl::Impl(const BoardView &args)
 	  })) {
 	customState.add(args.onRun.observe([&self = *this]() {
 		self.unselectAll();
-		self.clearNodeIndexes();
+		self.hideResults();
 
 		GraphDescriptor descriptor{self.boardStorage};
 
@@ -92,6 +97,29 @@ BoardView::Impl::Impl(const BoardView &args)
 
 				self.addChild(_);
 			}
+		}
+
+		// Delete the previous results if there were any
+		self.resultsAdder.notify(ResultsDisplay{
+			.destroyObs = self.resultsDestroyer,
+			.child = DCResultsViewer{
+				.graph = descriptor,
+				.simulation = DCSimulation{descriptor},
+				.elementSelector = self.elementSelector,
+			},
+		});
+	}));
+	customState.add(elementSelector.observe([&self = *this](const std::vector<ElementId> &ids) {
+		self.unselectAll();
+		for (const auto &id: ids) {
+			self.selectedWidgets.insert(id);
+			auto elem = self.boardStorage.getElement(id);
+			auto line = self.boardStorage.getLine(id);
+			if (line.has_value())
+				line->get().widget->customState.get<StateObservable>().notify(ElementState::selected);
+
+			if (elem.has_value())
+				elem->get().widget->customState.get<StateObservable>().notify(ElementState::selected);
 		}
 	}));
 }
@@ -234,6 +262,8 @@ void BoardView::Impl::onUpdate() {
 
 	// Escape or Mouse2 -> unselect all selected elements
 	if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_ESCAPE) || GestureDetector::isKeyPressedOrRepeat(GLFW_MOUSE_BUTTON_2)) {
+		resultsDestroyer.notify();
+		clearNodeIndexes();
 		unselectAll();
 	}
 
@@ -377,6 +407,7 @@ void BoardView::Impl::clickElement(squi::GestureDetector::Event /*event*/) {
 		auto itNode = boardStorage.connections.find(roundedGridPos);
 		itNode != boardStorage.connections.end() && !itNode->second.connections.empty()
 	) {
+		hideResults();
 		selectedLineWidget = BoardLinePlacer{
 			.startPos = roundedGridPos,
 			.boardStorage = boardStorage,
@@ -442,7 +473,7 @@ void BoardView::Impl::unselectAll() {
 
 void BoardView::Impl::deleteSelected() {
 	if (!selectedWidgets.empty()) {
-		clearNodeIndexes();
+		hideResults();
 	}
 	for (const auto &id: selectedWidgets) {
 		auto elem = boardStorage.getElement(id);
@@ -464,6 +495,11 @@ void BoardView::Impl::clearNodeIndexes() {
 	nodeIndexes.clear();
 }
 
+void BoardView::Impl::hideResults() {
+	clearNodeIndexes();
+	resultsDestroyer.notify();
+}
+
 BoardView::Impl::~Impl() {
 	for (const auto &comp: ComponentStore::components) {
 		const_cast<std::optional<Engine::SamplerUniform> &>(comp.get().texture).reset();
@@ -480,7 +516,18 @@ BoardView::operator squi::Child() const {
 				.onRun = onRun,
 				.boardStorage = ret->boardStorage,
 			},
-			ret,
+			Row{
+				.widget{
+					.onInit = [resultsAdder = ret->resultsAdder](Widget &w) {
+						w.customState.add(resultsAdder.observe([&w](const Child &child) {
+							w.addChild(child);
+						}));
+					},
+				},
+				.children{
+					ret,
+				},
+			},
 		},
 	};
 }

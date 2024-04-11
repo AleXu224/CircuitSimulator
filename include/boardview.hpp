@@ -32,8 +32,11 @@ struct BoardView {
 	public:
 		BoardStorage boardStorage{};
 		ComponentObservable componentSelectorObservable{};
+		squi::Observable<const squi::Child &> resultsAdder{};
+		squi::Observable<const std::vector<ElementId>&> elementSelector{};
 
 	private:
+		squi::VoidObservable resultsDestroyer{};
 		ComponentObservable::Observer observer;
 		std::optional<squi::Child> selectedComponentWidget{};
 		std::optional<squi::Child> selectedLineWidget{};
@@ -56,6 +59,7 @@ struct BoardView {
 		void unselectAll();
 		void deleteSelected();
 		void clearNodeIndexes();
+		void hideResults();
 
 	public:
 		Impl(const BoardView &args);

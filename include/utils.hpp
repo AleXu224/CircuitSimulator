@@ -3,7 +3,7 @@
 #include "component.hpp"
 #include "coords.hpp"
 #include "vec2.hpp"
-
+#include "Eigen/Eigen"
 
 namespace Utils {
 	Coords screenToGridRounded(const squi::vec2 &screen, const squi::vec2 &offset, const squi::vec2 &boardPos);
@@ -17,4 +17,5 @@ namespace Utils {
 		std::vector<Coords> newNodes{};
 	};
 	RotatedElementData rotateElement(uint32_t rotation, const Component &comp);
+	std::tuple<Eigen::MatrixXf, std::vector<int64_t>> calculateNonzeroPivots(Eigen::MatrixXf &input);
 }// namespace Utils

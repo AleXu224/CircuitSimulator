@@ -1,12 +1,13 @@
 #pragma once
-#include "coords.hpp"
+
+#include "observer.hpp"
 #include "widget.hpp"
 
-struct NodeIndexDisplay {
+struct ResultsDisplay {
     // Args
     squi::Widget::Args widget{};
-    uint32_t nodeIndex{};
-    Coords pos;
+    squi::VoidObservable destroyObs{};
+    squi::Child child{};
 
     struct Storage {
         // Data
