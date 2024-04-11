@@ -110,8 +110,10 @@ BoardElement::operator squi::Child() const {
 							  .onUpdate = [storage](Widget &w) {
 								  const auto &elem = storage->boardStorage.getElement(storage->elementId)->get();
 								  auto &text = w.as<Text::Impl>();
-								  if (storage->lastValue != elem.element.propertiesValues.front()) {
+								  const auto newVal = elem.element.propertiesValues.front();
+								  if (storage->lastValue != newVal) {
 									  text.setText(std::format("{}{}", elem.element.propertiesValues.front(), elem.element.component.get().properties.front().suffix));
+									  storage->lastValue = newVal;
 								  }
 							  },
 							  .onArrange = [storage](Widget &w, vec2 &pos) {
