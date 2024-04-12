@@ -32,7 +32,7 @@ std::vector<Connection> getAdditionalConnections(const BoardStorage &board, cons
 			if (!lineIt.has_value()) continue;
 			for (const auto &[nodeIndex, _]: lineIt->get().element.nodes | std::views::enumerate) {
 				additionalConnections.emplace_back(Connection{
-					.nodeIndex = nodeIndex,
+					.nodeIndex = static_cast<size_t>(nodeIndex),
 					.elementId = lineId,
 				});
 			}
@@ -51,7 +51,6 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 	struct Args {
 		const size_t nodeIndex;
 		ExpandNodeResult ret{};
-		bool alreadyExplored = false;
 		std::unordered_set<uint32_t> locallyExploredLines{};
 		const GraphElement &graphElement;
 		ExplorationState &state;
@@ -64,6 +63,9 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 	};
 
 	auto crawler = [](this auto &&self, Args &args, const Coords &coords) -> void {
+		if (args.state.exploredConnections.contains(coords)) return;
+		args.state.exploredConnections.emplace(coords);
+
 		const auto connections = {
 			args.state.board.connections.at(coords).connections,
 			getAdditionalConnections(
@@ -84,72 +86,59 @@ std::optional<GraphDescriptor::ExpandNodeResult> GraphDescriptor::expandNode(
 			// node exploration has already explored this or will do so in the future
 			switch (elemData.component.get().type) {
 				case ElementType::Other: {
+					// if (args.state.exploredElements.contains(elemData.id)) {
+					// 	continue;
+					// }
 					args.ret.elements.push_back(elemData);
-					if (elemData.id == args.graphElement.element.id) continue;
+					// if (elemData.id == args.graphElement.element.id) continue;
 
-					if (args.state.exploredElements.contains(elemData.id)) {
-						args.alreadyExplored = true;
-						return;
-					}
 					// Set the element connection to the current node
-					for (const auto &connection: args.state.board.connections.at(coords).connections) {
-						if (connection.elementId == elemData.id) {
-							auto [it, _] = args.self.elements.emplace(GraphElement{.element{elemData}});
-							it->nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
-							args.state.exploredConnections.insert(coords);
-							break;
-						}
-					}
+					auto [it, _] = args.self.elements.emplace(GraphElement{.element{elemData}});
+					it->nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
 
 					continue;
 				}
 				case ElementType::Ground:
 				case ElementType::Line: {
-					if (args.state.exploredLines.contains(elemData.id)) {
-						args.alreadyExplored = true;
-						args.graphElement.nodes.at(args.nodeIndex) = args.state.exploredLines.at(elemData.id);
-						return;
-					}
 					if (args.locallyExploredLines.contains(elemData.id)) {
 						continue;
 					}
 					args.locallyExploredLines.emplace(elemData.id);
 					args.ret.lines.push_back(elemData);
 
-					const std::vector<Coords> connectionCoords = [&]() -> std::vector<Coords> {
-						switch (elemData.component.get().type) {
-							case ElementType::Line: {
-								return {
-									elemData.nodes.at(0) + elemData.pos,
-									elemData.nodes.at(1) + elemData.pos,
-								};
-							}
-							case ElementType::Ground: {
-								std::vector<Coords> ret{};
-								for (const auto &elem: args.state.board.elements) {
-									if (elem.element.component.get().type != ElementType::Ground) continue;
-									for (const auto &node: elem.element.nodes) {
-										ret.emplace_back(node + elem.element.pos);
-									}
+					std::vector<Coords> connectionCoords{};
+					switch (elemData.component.get().type) {
+						case ElementType::Line: {
+							const auto dist = (elemData.nodes.at(0) - elemData.nodes.at(1)).abs();
+							for (auto x: std::views::iota(elemData.pos.x) | std::views::take(dist.x + 1)) {
+								for (auto y: std::views::iota(elemData.pos.y) | std::views::take(dist.y + 1)) {
+									if (args.state.board.connections.contains(Coords{x, y}) && args.state.board.connections.at(Coords{x, y}).connections.size() > 0)
+										connectionCoords.emplace_back(Coords{x, y});
 								}
-								return ret;
 							}
-							default:
-								std::unreachable();
 						}
-					}();
+						case ElementType::Ground: {
+							std::vector<Coords> connectionCoords{};
+							for (const auto &elem: args.state.board.elements) {
+								if (elem.element.component.get().type != ElementType::Ground) continue;
+								for (const auto &node: elem.element.nodes) {
+									connectionCoords.emplace_back(node + elem.element.pos);
+								}
+							}
+						}
+						default:
+							std::unreachable();
+					}
 					for (const auto &connectionCoord: connectionCoords) {
 						if (connectionCoord == coords) continue;
 
 						self(args, connectionCoord);
-						if (args.alreadyExplored) return;
 					}
 				}
 			}
 		}
 	};
 	crawler(args, coords);
-	if (args.alreadyExplored) return std::nullopt;
 
 	return args.ret;
 }
@@ -209,7 +198,7 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 					continue;
 				}
 
-				elements.find(GraphElement{.element{elem}})->nodes.at(index) = state.nodeIdCounter;
+				// elements.find(GraphElement{.element{elem}})->nodes.at(index) = state.nodeIdCounter;
 				auto &resVal = res.value();
 				for (auto &line: resVal.lines) {
 					state.exploredLines.emplace(line.id, state.nodeIdCounter);
@@ -240,7 +229,7 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 		);
 		if (it != elements.end()) elements.erase(it);
 	}
-	
+
 	{
 		// Erase all elements that have all their connections at the same node
 		std::vector<decltype(elements)::iterator> elemsToErase{};
