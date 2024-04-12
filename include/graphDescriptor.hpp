@@ -1,11 +1,9 @@
 #pragma once
 
-#include "Eigen/Eigen"
 #include "boardStorage.hpp"
 #include "element.hpp"
 #include "unordered_set"
 #include <Eigen/src/Core/Matrix.h>
-
 
 
 struct GraphDescriptor {
@@ -16,8 +14,8 @@ private:
 	void exploreBoard(BoardStorage &);
 
 	struct ExpandNodeResult {
-		std::vector<Element> elements{};
-		std::vector<Element> lines{};
+		std::vector<std::reference_wrapper<const Element>> elements{};
+		std::vector<std::reference_wrapper<const Element>> lines{};
 	};
 	struct GraphElement {
 		Element element;
@@ -45,14 +43,20 @@ private:
 		uint32_t nodeIdCounter = 0;
 		const BoardStorage &board;
 		std::unordered_set<Coords> exploredConnections{};
-		std::unordered_set<uint32_t> exploredElements{};
-		std::unordered_map<uint32_t, uint32_t> exploredLines{};
-		std::unordered_set<Element, ElementHasher> elementsToTraverse{};
 	};
-	std::optional<ExpandNodeResult> expandNode(
+
+	struct ExpandArgs {
+		const size_t nodeIndex;
+		ExpandNodeResult ret{};
+		std::unordered_set<uint32_t> locallyExploredLines{};
+		ExplorationState &state;
+		GraphDescriptor &self;
+	};
+
+	GraphDescriptor::ExpandNodeResult
+	expandNode(
 		size_t nodeIndex,
 		const Coords &coords,
-		const GraphElement &graphElement,
 		ExplorationState &state
 	);
 
