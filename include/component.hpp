@@ -29,5 +29,5 @@ struct Component {
 	squi::vec2 uvTopLeft{0, 0};
 	squi::vec2 uvBottomRight{1, 1};
 	bool hidden = false;
-	std::vector<ElementProperty> properties{};
+	std::vector<PropertySet> properties{};
 };

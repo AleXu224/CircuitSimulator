@@ -3,8 +3,7 @@
 
 DCSimulation::DCSimulation(const GraphDescriptor &graph) {
     if (graph.nodes.size() < 2) return;
-	auto graphMatrix = generateGraphMatrix(graph);
-	auto incidenceMatrix = generateIncidenceMatrix(graph, graphMatrix);
+	auto incidenceMatrix = generateIncidenceMatrix(graph);
 	auto A = Eigen::MatrixXf(incidenceMatrix.bottomRows(incidenceMatrix.rows() - 1));
 	auto [mat, piv] = Utils::calculateNonzeroPivots(A);
 	auto Ar = Eigen::MatrixXf(A(Eigen::all, piv));
@@ -30,14 +29,14 @@ DCSimulation::DCSimulation(const GraphDescriptor &graph) {
 	std::vector<int64_t> Lp{};
 	std::vector<int64_t> Le{};
 	std::vector<int64_t> Lj{};
-	for (int64_t i = 0; i < graphMatrix.cols(); i++) {
-		auto val = graphMatrix(1, i);
-		if (val == 2)
-			Le.emplace_back(i);
-		else if (val == 3)
-			Lj.emplace_back(i);
+	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
+		const auto id = elem.element.component.get().id;
+		if (id == 2)
+			Le.emplace_back(index);
+		else if (id == 3)
+			Lj.emplace_back(index);
 		else
-			Lp.emplace_back(i);
+			Lp.emplace_back(index);
 	}
 
 	auto Ap = A(Eigen::all, Lp);
@@ -48,7 +47,36 @@ DCSimulation::DCSimulation(const GraphDescriptor &graph) {
 	auto Be = B(Eigen::all, Le);
 	auto Bj = B(Eigen::all, Lj);
 
-	auto params = graphMatrix.row(4);
+	auto params = Eigen::VectorXf(graph.elements.size());
+	int64_t paramIndex = 0;
+	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
+		const auto &element = elem.element;
+		const auto id = elem.element.component.get().id;
+		if (id == 2) {
+			// Voltage source
+			if (element.propertySetIndex == 1) {
+				params(paramIndex++) = 0;
+				continue;
+			}
+			params(paramIndex++) = getFloat(element.propertiesValues.at(0));
+		} else if (id == 3) {
+			// Current source
+			if (element.propertySetIndex == 1) {
+				params(paramIndex++) = 0;
+				continue;
+			}
+			params(paramIndex++) = getFloat(element.propertiesValues.at(0));
+		} else if (id == 4) {
+			// Resistor
+			params(paramIndex++) = getFloat(element.propertiesValues.at(0));
+		} else if (id == 6) {
+			// Capacitor
+			params(paramIndex++) = std::numeric_limits<float>::max();
+		} else if (id == 7) {
+			// Inductor
+			params(paramIndex++) = std::numeric_limits<float>::min();
+		}
+	}
 	auto R = Eigen::MatrixXf(params(Lp).asDiagonal());
 	auto E = params(Le).transpose();
 	auto J = params(Lj).transpose();
@@ -92,47 +120,16 @@ DCSimulation::DCSimulation(const GraphDescriptor &graph) {
 	}
 }
 
-Eigen::MatrixXf DCSimulation::generateGraphMatrix(const GraphDescriptor &graph) {
-	constexpr size_t maxNodeConnections = 2;
-	const size_t vectorSizeReq = 1 /*Element id*/ + 1 /*Component id*/ + maxNodeConnections + 1 /*Property value*/;
-	std::vector<Eigen::VectorXf> vecs{};
-	vecs.reserve(graph.elements.size());
-	for (const auto &element: graph.elements) {
-		Eigen::VectorXf ret{};
-		ret.resize(vectorSizeReq);
-		ret[0] = static_cast<float>(element.element.id);
-		ret[1] = static_cast<float>(element.element.component.get().id);
-		int64_t index = 2;
-		for (auto &connection: element.nodes | std::views::take(maxNodeConnections)) {
-			ret[index++] = static_cast<float>(connection);
-		}
-		ret[4] = element.element.propertiesValues.front();
-		vecs.emplace_back(std::move(ret));
-	}
-
-	std::sort(vecs.begin(), vecs.end(), [](const auto &a, const auto &b) {
-		return a[0] < b[0];
-	});
-	Eigen::MatrixXf ret{};
-	ret.resize(vectorSizeReq, static_cast<int64_t>(vecs.size()));
-	for (const auto &[index, vec]: vecs | std::views::enumerate) {
-		ret.col(index) = vec;
-	}
-
-	return ret;
-}
-
-Eigen::MatrixXf DCSimulation::generateIncidenceMatrix(const GraphDescriptor &graph, const Eigen::MatrixXf &graphMatrix) {
+Eigen::MatrixXf DCSimulation::generateIncidenceMatrix(const GraphDescriptor &graph) {
 	Eigen::MatrixXf ret{};
 	ret.resize(
 		static_cast<int64_t>(graph.nodes.size()),
 		static_cast<int64_t>(graph.elements.size())
 	);
 	ret.fill(0);
-	for (int64_t i = 0; i < graphMatrix.cols(); i++) {
-		const auto &graphCol = graphMatrix.col(i);
-		ret.col(i)(static_cast<int64_t>(std::round(graphCol[2]))) = 1;
-		ret.col(i)(static_cast<int64_t>(std::round(graphCol[3]))) = -1;
+	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
+		ret.col(index)(elem.nodes.at(0)) = 1;
+		ret.col(index)(elem.nodes.at(1)) = -1;
 	}
 
 	return ret;

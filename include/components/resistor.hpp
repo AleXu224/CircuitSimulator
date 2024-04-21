@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../component.hpp"
+#include "../property/propertyUtils.hpp"
 
 static const Component resistor{
 	.name = "Resistor",
@@ -20,9 +20,14 @@ static const Component resistor{
 	.texturePath = R"(.\assets\resistor.png)",
 	.textureThumbPath = R"(.\assets\resistorThumb.png)",
 	.properties{
-		ElementProperty{
-			.name{"Resistance"},
-			.suffix{"Ω"},
+		PropertySet{
+			.properties{
+				PropertyData{
+					.name{"Resistance"},
+					.suffix{"Ω"},
+					.type = PropertyIndexOf<NumberProperty>,
+				}
+			},
 		},
 	},
 };

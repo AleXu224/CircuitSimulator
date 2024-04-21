@@ -1,4 +1,5 @@
 #include "boardview.hpp"
+#include "acSimulation.hpp"
 #include "boardElement.hpp"
 #include "boardElementPlacer.hpp"
 #include "boardLine.hpp"
@@ -98,6 +99,8 @@ BoardView::Impl::Impl(const BoardView &args)
 				self.addChild(_);
 			}
 		}
+
+		auto _ = ACSimulation{descriptor};
 
 		// Delete the previous results if there were any
 		self.resultsAdder.notify(ResultsDisplay{

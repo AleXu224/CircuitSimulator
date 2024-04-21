@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../component.hpp"
+#include "../property/propertyUtils.hpp"
 
 static const Component voltageSource{
 	.name = "Voltage Source",
@@ -22,9 +22,30 @@ static const Component voltageSource{
 	.uvTopLeft{0.25, 0},
 	.uvBottomRight{0.75, 1},
 	.properties{
-		ElementProperty{
-			.name{"Voltage"},
-			.suffix{"V"},
+		PropertySet{
+			.name = "D.C. Mode",
+			.properties{
+				PropertyData{
+					.name{"Voltage"},
+					.suffix{"V"},
+					.type = PropertyIndexOf<NumberProperty>,
+				},
+			},
+		},
+		PropertySet{
+			.name = "A.C. Mode",
+			.properties{
+				PropertyData{
+					.name{"Amplitude"},
+					.suffix{"V"},
+					.type = PropertyIndexOf<NumberProperty>,
+				},
+				PropertyData{
+					.name{"Phase"},
+					.suffix{"°"},
+					.type = PropertyIndexOf<NumberProperty>,
+				},
+			},
 		},
 	},
 };

@@ -1,6 +1,7 @@
 #include "boardLinePlacer.hpp"
 #include "config.hpp"
 #include "gestureDetector.hpp"
+#include "msdfImage.hpp"
 #include "observer.hpp"
 #include "utils.hpp"
 

@@ -31,7 +31,8 @@ BoardElementPlacer::operator squi::Child() const {
 							.rotation = storage.rotation,
 							.nodes{rotatedData.newNodes},
 							.component = storage.component,
-							.propertiesValues = std::vector<float>(storage.component.properties.size()),
+							// .propertiesValues = std::vector<float>(storage.component.properties.size()),
+							.propertiesValues = getProperties(0, storage.component),
 						});
 					}));
 				},

@@ -12,8 +12,13 @@ struct PropertyEditor {
 
 	struct Storage {
 		// Data
-		std::vector<float> values{};
+		size_t propIndex;
+		std::vector<PropertyVariant> props;
 		squi::Observable<bool> closeObs{};
+		uint64_t focusIndex = 0;
+		std::vector<squi::Observable<bool>> focusObservables{};
+		squi::VoidObservable saveObs{};
+		squi::VoidObservable propIndexChanged{};
 		const Element &element;
 	};
 

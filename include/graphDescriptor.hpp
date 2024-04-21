@@ -3,7 +3,6 @@
 #include "boardStorage.hpp"
 #include "element.hpp"
 #include "unordered_set"
-#include <Eigen/src/Core/Matrix.h>
 
 
 struct GraphDescriptor {

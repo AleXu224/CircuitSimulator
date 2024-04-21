@@ -1,6 +1,6 @@
 #pragma once
 
-#include "../component.hpp"
+#include "../property/propertyUtils.hpp"
 
 static const Component inductor{
 	.name = "Inductor",
@@ -20,9 +20,14 @@ static const Component inductor{
 	.texturePath = R"(.\assets\inductor.png)",
 	.textureThumbPath = R"(.\assets\inductorThumb.png)",
 	.properties{
-		ElementProperty{
-			.name{"Inductance"},
-			.suffix{"H"},
+		PropertySet{
+			.properties{
+				PropertyData{
+					.name{"Inductance"},
+					.suffix{"H"},
+					.type = PropertyIndexOf<NumberProperty>,
+				},
+			},
 		},
 	},
 };

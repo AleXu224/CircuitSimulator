@@ -4,56 +4,62 @@
 #include "button.hpp"
 #include "column.hpp"
 #include "container.hpp"
+#include "contextMenu.hpp"
 #include "expander.hpp"
+#include "fontIcon.hpp"
 #include "gestureDetector.hpp"
-#include "numberBox.hpp"
 #include "observer.hpp"
 #include "row.hpp"
 #include "scrollableFrame.hpp"
 #include "stack.hpp"
+#include "window.hpp"
 
 
 using namespace squi;
 
-struct PropertyInput {
+struct PropertySetChooser {
 	// Args
 	squi::Widget::Args widget{};
-	std::string_view name;
-	float &value;
-
-
-	struct Storage {
-		// Data
-	};
+	std::shared_ptr<PropertyEditor::Storage> storage;
 
 	operator squi::Child() const {
-		Observable<bool> focusObs{};
-		VoidObservable selectAllObs{};
-
-		return Row{
-			.widget{
-				.height = Size::Shrink,
+		return Button{
+			.style = ButtonStyle::Standard(),
+			.onClick = [storage = storage](GestureDetector::Event event) {
+				Window::of(&event.widget).addOverlay(ContextMenu{
+					.position = event.widget.getPos().withYOffset(event.widget.getLayoutSize().y),
+					.items = [&]() {
+						std::vector<ContextMenu::Item> ret{};
+						for (const auto &[index, propertySet]: storage->element.component.get().properties | std::views::enumerate) {
+							ret.emplace_back(
+								ContextMenu::Item{
+									.text = propertySet.name,
+									.content = [index = index, storage = storage]() {
+										storage->propIndex = index;
+										storage->propIndexChanged.notify();
+									},
+								}
+							);
+						}
+						return ret;
+					}(),
+				});
 			},
-			.alignment = Row::Alignment::center,
-			.children{
-				Text{
-					.text{name},
-				},
-				Container{},
-				NumberBox{
-					.widget{
-						.afterInit = [focusObs, selectAllObs](Widget &) {
-							focusObs.notify(true);
-							selectAllObs.notify();
+			.child = Row{
+				.alignment = squi::Row::Alignment::center,
+				.spacing = 4.f,
+				.children{
+					Container{
+						.child = Align{
+							.xAlign = 0.f,
+							.child = Text{
+								.text = storage->element.component.get().properties.at(storage->propIndex).name,
+							},
 						},
 					},
-					.value = value,
-					.onChange = [&value = value](float newVal) {
-						value = newVal;
-					},
-					.controller{
-						.focus = focusObs,
-						.selectAll = selectAllObs,
+					FontIcon{
+						.icon = 0xE972,
+						.size = 12.f,
 					},
 				},
 			},
@@ -64,12 +70,35 @@ struct PropertyInput {
 struct Content {
 	// Args
 	squi::Widget::Args widget{};
-	const Element &element;
-	std::vector<float> &values;
+	std::shared_ptr<PropertyEditor::Storage> storage;
+	VoidObservable saveObs;
 
-	struct Storage {
-		// Data
-	};
+	static inline Children getChildren(const std::shared_ptr<PropertyEditor::Storage> &storage, const VoidObservable &saveObs) {
+		const auto &element = storage->element;
+		Children ret{
+			Text{
+				.text{std::format("{} {} Properties", element.component.get().name, element.id)},
+				.fontSize = 20.f,
+			},
+			storage->element.component.get().properties.size() > 1
+				? PropertySetChooser{
+					  .storage = storage,
+				  }
+				: Child{},
+		};
+		ret.reserve(ret.size() + element.component.get().properties.size());
+
+		for (const auto &[prop, focusObservable]: std::views::zip(storage->props, storage->focusObservables)) {
+			std::visit(
+				[&](PropertyLike auto &&item) {
+					ret.emplace_back(item.createInput(saveObs, focusObservable));
+				},
+				prop
+			);
+		}
+
+		return ret;
+	}
 
 	operator squi::Child() const {
 		return Box{
@@ -87,29 +116,22 @@ struct Content {
 			.borderPosition = Box::BorderPosition::outset,
 			.child = ScrollableFrame{
 				.widget{
+					.height = Size::Shrink,
 					.padding = 24.f,
 				},
+				.scrollableWidget{
+					.onInit = [storage = storage, saveObs = saveObs](Widget &w) {
+						w.customState.add(storage->propIndexChanged.observe([&w, storage, saveObs]() {
+							storage->props = getProperties(storage->propIndex, storage->element.component.get());
+							storage->focusObservables.resize(storage->props.size(), {});
+							w.setChildren(getChildren(storage, saveObs));
+							storage->focusIndex = 0;
+							if (!storage->focusObservables.empty()) storage->focusObservables.front().notify(true);
+						}));
+					},
+				},
 				.spacing = 8.f,
-				.children = std::invoke([&]() {
-					Children ret{
-						Text{
-							.text{std::format("{} {} Properties", element.component.get().name, element.id)},
-							.fontSize = 20.f,
-						},
-					};
-					ret.reserve(ret.size() + element.component.get().properties.size());
-					values.reserve(element.component.get().properties.size());
-
-					for (const auto &[prop, value]: std::views::zip(element.component.get().properties, element.propertiesValues)) {
-						auto &_ = values.emplace_back(value);
-						ret.emplace_back(PropertyInput{
-							.name = prop.suffix.empty() ? prop.name : std::format("{} ({})", prop.name, prop.suffix),
-							.value = _,
-						});
-					}
-
-					return ret;
-				}),
+				.children = getChildren(storage, saveObs),
 			},
 		};
 	}
@@ -162,19 +184,40 @@ struct ButtonBar {
 };
 
 PropertyEditor::operator squi::Child() const {
-	auto storage = std::make_shared<Storage>(Storage{.element = element});
+	auto storage = std::make_shared<Storage>(Storage{
+		.propIndex = element.propertySetIndex,
+		.props = element.propertiesValues,
+		.focusObservables = std::vector<Observable<bool>>(element.propertiesValues.size()),
+		.element = element,
+	});
 
 	return Stack{
 		.widget{
 			.onInit = [storage](Widget &w) {
-				w.customState.add(storage->closeObs.observe([&w, storage](bool save) {
-					if (save) {
-						for (auto [val, prop]: std::views::zip(storage->values, storage->element.propertiesValues)) {
-							const_cast<float &>(prop) = val;
-						}
+				w.customState.add(storage->closeObs.observe([&w, storage](bool saved) {
+					if (saved) {
+						storage->element.propertySetIndex = storage->propIndex;
+						storage->saveObs.notify();
+						storage->element.propertiesValues = storage->props;
 					}
 					w.deleteLater();
 				}));
+			},
+			.afterInit = [storage](Widget &) {
+				if (storage->focusObservables.empty()) return;
+				storage->focusObservables.front().notify(true);
+			},
+			.onUpdate = [storage](Widget &) {
+				auto newIndex = storage->focusIndex;
+				if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_TAB)) {
+					newIndex = (storage->focusIndex + 1) % storage->focusObservables.size();
+				} else if (GestureDetector::isKeyPressedOrRepeat(GLFW_KEY_TAB, GLFW_MOD_SHIFT)) {
+					newIndex = (storage->focusIndex + storage->focusObservables.size() - 1) % storage->focusObservables.size();
+				}
+				if (storage->focusIndex == newIndex) return;
+				storage->focusObservables.at(storage->focusIndex).notify(false);
+				storage->focusObservables.at(newIndex).notify(true);
+				storage->focusIndex = newIndex;
 			},
 		},
 		.children{
@@ -208,7 +251,7 @@ PropertyEditor::operator squi::Child() const {
 					.borderRadius{8.f},
 					.child = Column{
 						.children{
-							Content{.element = element, .values = storage->values},
+							Content{.storage = storage, .saveObs = storage->saveObs},
 							ButtonBar{.closeObs = storage->closeObs},
 						},
 					},
