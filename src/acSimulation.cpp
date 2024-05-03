@@ -91,11 +91,9 @@ ACSimulation::ACSimulation(const GraphDescriptor &graph) {
 			Z(Zi++) = getFloat(element.propertiesValues.at(0));
 		} else if (id == 6) {
 			// Capacitor
-			// Z(Zi++) = -1if * getFloat(element.propertiesValues.at(0));
 			Z(Zi++) = -1if * (1.f / (omega * getFloat(element.propertiesValues.at(0))));
 		} else if (id == 7) {
 			// Inductor
-			// Z(Zi++) = 1if * getFloat(element.propertiesValues.at(0));
 			Z(Zi++) = 1if * omega * getFloat(element.propertiesValues.at(0));
 		}
 	}
@@ -132,15 +130,6 @@ ACSimulation::ACSimulation(const GraphDescriptor &graph) {
 	currents.reserve(Ie_numeric_b.rows());
 	for (const auto &[val, id]: std::views::zip(Ie_numeric_b.reshaped(), Le)) {
 		currents.emplace_back(id, val);
-		// const auto phase = std::atan2(val.imag(), val.real());
-		// const auto magnitude = std::sqrt(val.real() * val.real() + val.imag() * val.imag());
-		// const auto angularFrequency = 50.f * 2.f * std::numbers::pi_v<float>;
-		// const auto oneThousandth = [](float x) {
-		// 	return x / 1000.f;
-		// };
-		// for (const auto &val: std::views::iota(0, 50) | std::views::transform(oneThousandth)) {
-		// 	std::println("{}", magnitude * std::sin(angularFrequency * val + phase));
-		// }
 	}
 
 	voltages.reserve(V_numeric.rows());
