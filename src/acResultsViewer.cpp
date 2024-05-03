@@ -1,9 +1,12 @@
-#include "dcResultsViewer.hpp"
+#include "acResultsViewer.hpp"
 #include "align.hpp"
 #include "button.hpp"
 #include "gestureDetector.hpp"
+#include "graphView.hpp"
+#include "numbers"
 #include "scrollableFrame.hpp"
 #include "text.hpp"
+
 
 using namespace squi;
 
@@ -61,7 +64,7 @@ struct Heading {
 	operator squi::Child() const {
 		return Text{
 			.widget{
-				.margin = Margin{16.f, 4.f, 8.f, 8.f},
+				.margin = 8.f,
 			},
 			.text = text,
 			.fontSize = 20.f,
@@ -70,7 +73,27 @@ struct Heading {
 	}
 };
 
-DCResultsViewer::operator squi::Child() const {
+inline float getPhase(const std::complex<float> &val) {
+	return std::atan2(val.imag(), val.real()) / std::numbers::pi_v<float> * 180.f;
+}
+
+std::vector<Graph::LineValue> generateGraphData(const std::complex<float> &val) {
+	std::vector<Graph::LineValue> data{};
+	data.reserve(1000);
+	const auto phase = std::atan2(val.imag(), val.real());
+	const auto magnitude = std::sqrt(val.real() * val.real() + val.imag() * val.imag());
+	const auto angularFrequency = 50.f * 2.f * std::numbers::pi_v<float>;
+	for (int i = 0; i < 100; i++) {
+		data.emplace_back(Graph::LineValue{
+			.value = magnitude * std::sin(angularFrequency * static_cast<float>(i) / 1000.f + phase),
+			.x = static_cast<float>(i),
+		});
+	}
+
+	return data;
+}
+
+ACResultsViewer::operator squi::Child() const {
 	auto storage = std::make_shared<Storage>();
 
 	return ScrollableFrame{
@@ -80,7 +103,20 @@ DCResultsViewer::operator squi::Child() const {
 		},
 		.spacing = 4.f,
 		.children = [&]() -> Children {
-			Children ret{};
+			Observable<const std::vector<Graph::LineValue> &> graphDataUpdater{};
+			Children ret{
+				Card{
+					.child = GraphView{
+						.widget{
+							.height = 300.f,
+							.margin = 4.f,
+						},
+						.updateData = graphDataUpdater,
+						.values{},
+					},
+				},
+			};
+
 			if (!simulation.voltages.empty()) {
 				Children voltRet{
 					Heading{
@@ -89,14 +125,21 @@ DCResultsViewer::operator squi::Child() const {
 				};
 				for (const auto &[index, val]: simulation.voltages | std::views::enumerate) {
 					voltRet.emplace_back(ResultsItem{
-						.text = std::format("N{}: {:.2f}V", index + 1, val),
-						.onClick = [elementSelector = elementSelector, node = graph.nodes.at(index + 1)]() {
+						.text = std::format(
+							"N{} {}V {}°",
+							index + 1,
+							std::sqrt(val.real() * val.real() + val.imag() * val.imag()),
+							getPhase(val)
+						),
+						.onClick = [elementSelector = elementSelector, node = graph.nodes.at(index + 1), graphDataUpdater, val]() {
 							std::vector<ElementId> ret{};
 							ret.reserve(node.lines.size());
 							for (const auto &line: node.lines) {
 								ret.emplace_back(line.id);
 							}
 							elementSelector.notify(ret);
+
+							graphDataUpdater.notify(generateGraphData(val));
 						},
 					});
 				}
@@ -111,9 +154,16 @@ DCResultsViewer::operator squi::Child() const {
 				};
 				for (const auto &val: simulation.currents) {
 					currRet.emplace_back(ResultsItem{
-						.text = std::format("V{}: {:.2f}A", val.id, val.value),
-						.onClick = [elementSelector = elementSelector, id = val.id]() {
+						.text = std::format(
+							"V{} {}A, {}°",
+							val.id,
+							std::sqrt(val.value.real() * val.value.real() + val.value.imag() * val.value.imag()),
+							getPhase(val.value)
+						),
+						.onClick = [elementSelector = elementSelector, id = val.id, graphDataUpdater, val]() {
 							elementSelector.notify({id});
+
+							graphDataUpdater.notify(generateGraphData(val.value));
 						},
 					});
 				}

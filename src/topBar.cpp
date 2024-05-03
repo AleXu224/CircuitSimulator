@@ -2,12 +2,15 @@
 #include "align.hpp"
 #include "box.hpp"
 #include "button.hpp"
+#include "column.hpp"
 #include "components/componentStore.hpp"
+#include "contextMenu.hpp"
 #include "fontIcon.hpp"
 #include "gestureDetector.hpp"
 #include "msdfImage.hpp"
 #include "row.hpp"
 #include "widget.hpp"
+#include "window.hpp"
 #include <functional>
 #include <print>
 
@@ -35,6 +38,48 @@ struct TopBarButton {
 	}
 };
 
+struct IconTextCombo {
+	// Args
+	squi::Widget::Args widget{};
+	char32_t icon{};
+	std::string_view text{};
+
+	operator squi::Child() const {
+		return Column{
+			.widget{
+				.height = Size::Shrink,
+			},
+			.alignment = squi::Column::Alignment::center,
+			.spacing = 4.f,
+			.children{
+				FontIcon{
+					.icon = icon,
+					.size = 16.f,
+					.color = 0xFFFFFFFF,
+				},
+				Text{
+					.text = text,
+				},
+			},
+		};
+	}
+};
+
+struct Separator {
+	// Args
+	squi::Widget::Args widget{};
+
+	operator squi::Child() const {
+		return Box{
+			.widget{
+				.width = 1.f,
+				.margin = Margin(2.f, 4.f),
+			},
+			.color = Color(1.f, 1.f, 1.f, 0.1f),
+		};
+	}
+};
+
 TopBar::operator squi::Child() const {
 	auto storage = std::make_shared<Storage>(Storage{
 		.componentSelectorObserver = componentSelectorObserver,
@@ -55,35 +100,49 @@ TopBar::operator squi::Child() const {
 			.children = std::invoke([&storage, onRun = onRun] {
 				Children ret{
 					TopBarButton{
-						.onClick = [onRun = onRun](GestureDetector::Event) {
-							onRun.notify();
+						.onClick = [onRun = onRun](GestureDetector::Event event) {
+							Window::of(&event.widget).addOverlay(ContextMenu{
+								.position = event.widget.getPos() + event.widget.state.padding->getPositionOffset() + event.widget.getSize().withX(0.f),
+								.items{
+									ContextMenu::Item{
+										.text = "D.C. Simulation",
+										.content = [onRun]() {
+											onRun.notify(SimulationType::dcSim);
+										},
+									},
+									ContextMenu::Item{
+										.text = "A.C. Simulation",
+										.content = [onRun]() {
+											onRun.notify(SimulationType::acSim);
+										},
+									},
+								},
+							});
 						},
-						.child = FontIcon{
+						.child = IconTextCombo{
 							.icon = 0xF5B0,
-							.size = 24.f,
-							.color = 0xFFFFFFFF,
+							.text = "Run",
 						},
 					},
 					TopBarButton{
 						.onClick = [storage](GestureDetector::Event) {
 							storage->boardStorage.load();
 						},
-						.child = FontIcon{
+						.child = IconTextCombo{
 							.icon = 0xED43,
-							.size = 24.f,
-							.color = 0xFFFFFFFF,
+							.text = "Load",
 						},
 					},
 					TopBarButton{
 						.onClick = [storage](GestureDetector::Event) {
 							storage->boardStorage.save();
 						},
-						.child = FontIcon{
+						.child = IconTextCombo{
 							.icon = 0xEA35,
-							.size = 24.f,
-							.color = 0xFFFFFFFF,
+							.text = "Save",
 						},
 					},
+					Separator{},
 				};
 				for (const auto &comp: ComponentStore::components) {
 					if (comp.get().hidden) continue;

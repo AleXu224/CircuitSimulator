@@ -1,4 +1,5 @@
 #pragma once
+#include "simulationType.hpp"
 #include "widget.hpp"
 #include "observer.hpp"
 #include "component.hpp"
@@ -8,7 +9,7 @@ struct TopBar {
     // Args
 	squi::Widget::Args widget{};
 	squi::Observable<std::reference_wrapper<const Component>> componentSelectorObserver{};
-	squi::VoidObservable onRun;
+	squi::Observable<SimulationType> onRun;
 	BoardStorage& boardStorage;
 
 

@@ -63,6 +63,8 @@ ACSimulation::ACSimulation(const GraphDescriptor &graph) {
 	int64_t Zi = 0;
 	int64_t Ei = 0;
 	int64_t Ji = 0;
+	const auto frequency = 50.f;
+	const auto omega = 2.f * std::numbers::pi_v<float>  * frequency;
 	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
 		const auto &element = elem.element;
 		const auto id = elem.element.component.get().id;
@@ -73,7 +75,7 @@ ACSimulation::ACSimulation(const GraphDescriptor &graph) {
 				continue;
 			}
 			const auto amplitude = getFloat(element.propertiesValues.at(0));
-			const auto phase = getFloat(element.propertiesValues.at(1)) * 180.f / std::numbers::pi_v<float>;
+			const auto phase = getFloat(element.propertiesValues.at(1)) * std::numbers::pi_v<float> / 180.f;
 			Enum(Ei++) = amplitude * std::exp(1if * phase);
 		} else if (id == 3) {
 			// Current source
@@ -89,10 +91,12 @@ ACSimulation::ACSimulation(const GraphDescriptor &graph) {
 			Z(Zi++) = getFloat(element.propertiesValues.at(0));
 		} else if (id == 6) {
 			// Capacitor
-			Z(Zi++) = -1if * getFloat(element.propertiesValues.at(0));
+			// Z(Zi++) = -1if * getFloat(element.propertiesValues.at(0));
+			Z(Zi++) = -1if * (1.f / (omega * getFloat(element.propertiesValues.at(0))));
 		} else if (id == 7) {
 			// Inductor
-			Z(Zi++) = 1if * getFloat(element.propertiesValues.at(0));
+			// Z(Zi++) = 1if * getFloat(element.propertiesValues.at(0));
+			Z(Zi++) = 1if * omega * getFloat(element.propertiesValues.at(0));
 		}
 	}
 	auto Znum = Z.asDiagonal();

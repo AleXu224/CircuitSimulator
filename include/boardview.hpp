@@ -6,6 +6,7 @@
 #include "gestureDetector.hpp"
 #include "observer.hpp"
 #include "pipeline.hpp"
+#include "simulationType.hpp"
 #include "vec2.hpp"
 #include "widget.hpp"
 #include <functional>
@@ -16,7 +17,7 @@
 struct BoardView {
 	// Args
 	squi::Widget::Args widget;
-	squi::VoidObservable onRun;
+	squi::Observable<SimulationType> onRun;
 	using Quad = Engine::BoardBackgroundQuad;
 	using Pipeline = Engine::Pipeline<Quad::Vertex>;
 

@@ -1,4 +1,5 @@
 #include "boardview.hpp"
+#include "acResultsViewer.hpp"
 #include "acSimulation.hpp"
 #include "boardElement.hpp"
 #include "boardElementPlacer.hpp"
@@ -83,7 +84,7 @@ BoardView::Impl::Impl(const BoardView &args)
 		  addChild(child);
 		  selectedComponentWidget = child;
 	  })) {
-	customState.add(args.onRun.observe([&self = *this]() {
+	customState.add(args.onRun.observe([&self = *this](SimulationType type) {
 		self.unselectAll();
 		self.hideResults();
 
@@ -100,17 +101,30 @@ BoardView::Impl::Impl(const BoardView &args)
 			}
 		}
 
-		auto _ = ACSimulation{descriptor};
-
-		// Delete the previous results if there were any
-		self.resultsAdder.notify(ResultsDisplay{
-			.destroyObs = self.resultsDestroyer,
-			.child = DCResultsViewer{
-				.graph = descriptor,
-				.simulation = DCSimulation{descriptor},
-				.elementSelector = self.elementSelector,
-			},
-		});
+		switch (type) {
+			case SimulationType::acSim: {
+				self.resultsAdder.notify(ResultsDisplay{
+					.destroyObs = self.resultsDestroyer,
+					.child = ACResultsViewer{
+						.graph = descriptor,
+						.simulation = ACSimulation{descriptor},
+						.elementSelector = self.elementSelector,
+					},
+				});
+				break;
+			}
+			case SimulationType::dcSim: {
+				self.resultsAdder.notify(ResultsDisplay{
+					.destroyObs = self.resultsDestroyer,
+					.child = DCResultsViewer{
+						.graph = descriptor,
+						.simulation = DCSimulation{descriptor},
+						.elementSelector = self.elementSelector,
+					},
+				});
+				break;
+			}
+		}
 	}));
 	customState.add(elementSelector.observe([&self = *this](const std::vector<ElementId> &ids) {
 		self.unselectAll();
