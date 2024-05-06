@@ -68,13 +68,13 @@ squi::Child NumberProperty::createInput(const squi::VoidObservable &closeObs, co
 	};
 }
 
-constexpr auto index = Utils::getIndexFromTuple<NumberProperty, PropertiesTypes>();
-const uint64_t size = sizeof(uint64_t) + sizeof(index) + sizeof(NumberProperty::value);
+constexpr auto ind = Utils::getIndexFromTuple<NumberProperty, PropertiesTypes>();
+const uint64_t size = sizeof(uint64_t) + sizeof(ind) + sizeof(NumberProperty::value);
 std::vector<std::byte> NumberProperty::serialize() const {
 	std::vector<std::byte> ret{};
 	ret.reserve(size);
 	Utils::addBytes(ret, size);
-	Utils::addBytes(ret, index);
+	Utils::addBytes(ret, ind);
 	Utils::addBytes(ret, value);
 
 	return ret;
@@ -86,11 +86,11 @@ NumberProperty NumberProperty::deserialize(const std::span<const std::byte> &byt
 	auto it = bytes.begin();// Skip the first value
 
 	auto dataSize = Utils::bytesTo<uint64_t>(it);
-	auto dataIndex = Utils::bytesTo<decltype(index)>(it);
+	auto dataIndex = Utils::bytesTo<decltype(ind)>(it);
 	if (dataIndex != data.type) {
 		throw std::runtime_error("Data type and property type don't match");
 	}
-	if (dataIndex != index) {
+	if (dataIndex != ind) {
 		throw std::runtime_error("Deserialize called on the wrong property");
 	}
 	if (dataSize != size) {

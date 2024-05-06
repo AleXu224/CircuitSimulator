@@ -13,6 +13,7 @@
 #include "scrollableFrame.hpp"
 #include "stack.hpp"
 #include "window.hpp"
+#include "GLFW/glfw3.h"
 
 
 using namespace squi;

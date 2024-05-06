@@ -5,6 +5,7 @@
 #include "registerEvent.hpp"
 #include "row.hpp"
 #include "window.hpp"
+#include "GLFW/glfw3.h"
 
 using namespace squi;
 

@@ -4,6 +4,7 @@
 #include "msdfImage.hpp"
 #include "observer.hpp"
 #include "utils.hpp"
+#include "GLFW/glfw3.h"
 
 using namespace squi;
 
