@@ -17,8 +17,8 @@ static const Component inductor{
 			.y = 4,
 		},
 	},
-	.texturePath = R"(.\assets\inductor.png)",
-	.textureThumbPath = R"(.\assets\inductorThumb.png)",
+	.texturePath = R"(./assets/inductor.png)",
+	.textureThumbPath = R"(./assets/inductorThumb.png)",
 	.properties{
 		PropertySet{
 			.properties{

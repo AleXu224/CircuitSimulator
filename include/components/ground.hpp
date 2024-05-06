@@ -13,6 +13,6 @@ static const Component ground{
 			.y = 0,
 		},
 	},
-	.texturePath = R"(.\assets\ground.png)",
-	.textureThumbPath = R"(.\assets\ground.png)",
+	.texturePath = R"(./assets/ground.png)",
+	.textureThumbPath = R"(./assets/ground.png)",
 };

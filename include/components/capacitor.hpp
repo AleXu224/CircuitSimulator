@@ -17,8 +17,8 @@ static const Component capacitor{
 			.y = 3,
 		},
 	},
-	.texturePath = R"(.\assets\capacitor.png)",
-	.textureThumbPath = R"(.\assets\capacitorThumb.png)",
+	.texturePath = R"(./assets/capacitor.png)",
+	.textureThumbPath = R"(./assets/capacitorThumb.png)",
 	.properties{
 		PropertySet{
 			.properties{

@@ -17,8 +17,8 @@ static const Component currentSource{
 			.y = 0,
 		},
 	},
-	.texturePath = R"(.\assets\currentSourceEU.png)",
-	.textureThumbPath = R"(.\assets\currentSourceEUThumb.png)",
+	.texturePath = R"(./assets/currentSourceEU.png)",
+	.textureThumbPath = R"(./assets/currentSourceEUThumb.png)",
 	.uvTopLeft{0.25, 0},
 	.uvBottomRight{0.75, 1},
 	.properties{

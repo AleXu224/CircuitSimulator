@@ -7,7 +7,7 @@ static const Component conductor{
 	.width = 1,
 	.height = 1,
 	.type = ElementType::Line,
-	.texturePath = R"(.\assets\conductor.png)",
-	.textureThumbPath = R"(.\assets\resistorThumb.png)",
+	.texturePath = R"(./assets/conductor.png)",
+	.textureThumbPath = R"(./assets/resistorThumb.png)",
 	.hidden = true,
 };
