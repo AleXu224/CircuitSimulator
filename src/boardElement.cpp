@@ -97,6 +97,7 @@ struct PropertiesDisplay {
 					auto index = getIndex(storage->storage);
 					if (index != storage->lastPropertySetIndex) {
 						w.setChildren(getChildren(storage->storage));
+						storage->lastPropertySetIndex = index;
 					}
 				},
 				.onArrange = [storage](Widget &w, vec2 &pos) {
