@@ -81,7 +81,7 @@ std::vector<Graph::LineValue> generateGraphData(const std::complex<float> &val) 
 	std::vector<Graph::LineValue> data{};
 	data.reserve(1000);
 	const auto phase = std::atan2(val.imag(), val.real());
-	const auto magnitude = std::sqrt(val.real() * val.real() + val.imag() * val.imag());
+	const auto magnitude = std::sqrt(val.real() * val.real() + val.imag() * val.imag()) * std::sqrt(2);
 	const auto angularFrequency = 50.f * 2.f * std::numbers::pi_v<float>;
 	for (int i = 0; i < 100; i++) {
 		data.emplace_back(Graph::LineValue{

@@ -4,7 +4,7 @@
 
 static const Component capacitor{
 	.name = "Capacitor",
-	.prefix = "C",
+	.prefix = "F",
 	.width = 2,
 	.height = 3,
 	.nodes{
@@ -24,7 +24,7 @@ static const Component capacitor{
 			.properties{
 				PropertyData{
 					.name{"Capacitance"},
-					.suffix{"C"},
+					.suffix{"F"},
 					.type = PropertyIndexOf<NumberProperty>,
 				},
 			},
