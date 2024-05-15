@@ -36,7 +36,7 @@ static const Component currentSource{
 			.name = "A.C. Mode",
 			.properties{
 				PropertyData{
-					.name{"Amplitude"},
+					.name{"RMS value"},
 					.suffix{"A"},
 					.type = PropertyIndexOf<NumberProperty>,
 				},

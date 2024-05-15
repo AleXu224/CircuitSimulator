@@ -36,7 +36,7 @@ static const Component voltageSource{
 			.name = "A.C. Mode",
 			.properties{
 				PropertyData{
-					.name{"Amplitude"},
+					.name{"RMS value"},
 					.suffix{"V"},
 					.type = PropertyIndexOf<NumberProperty>,
 				},
