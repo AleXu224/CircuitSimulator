@@ -7,6 +7,7 @@ struct ACResultsViewer {
 	// Args
 	squi::Widget::Args widget{};
 	const GraphDescriptor &graph;
+	const BoardStorage &board;
 	const ACSimulation &simulation;
 	squi::Observable<const std::vector<ElementId> &> elementSelector{};
 

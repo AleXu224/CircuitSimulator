@@ -14,7 +14,7 @@ add_subdirectory(glt)
 
 file(GLOB_RECURSE all_files CONFIGURE_DEPENDS "src/*.cpp" "include/*.h")
 add_executable(CircuitSimulator main.cpp ${all_files})
-target_include_directories(CircuitSimulator PRIVATE include)
+target_include_directories(CircuitSimulator PRIVATE include include/widgets)
 
 file(GLOB_RECURSE asset_files "${PROJECT_SOURCE_DIR}/assets/*.png")
 add_custom_target(Assets)

@@ -1,76 +1,18 @@
 #include "acResultsViewer.hpp"
-#include "align.hpp"
-#include "button.hpp"
-#include "gestureDetector.hpp"
+#include "card.hpp"
 #include "graphView.hpp"
 #include "numbers"
+#include "resultsCard.hpp"
+#include "resultsItem.hpp"
 #include "scrollableFrame.hpp"
-#include "text.hpp"
 
 
 using namespace squi;
 
-struct Card {
-	// Args
-	Child child{};
-
-	operator squi::Child() const {
-		return Box{
-			.widget{
-				.height = Size::Shrink,
-				.padding = 4.f,
-			},
-			.color = Color(1.f, 1.f, 1.f, 0.0512f),
-			.borderColor = Color(0.f, 0.f, 0.f, 0.1f),
-			.borderWidth{1.f},
-			.borderRadius{8.f},
-			.borderPosition = squi::Box::BorderPosition::outset,
-			.child = child,
-		};
-	}
-};
-
-struct ResultsItem {
-	// Args
-	std::string_view text;
-	static inline uint32_t counter = 0;
-	std::function<void()> onClick;
-
-	operator squi::Child() const {
-		return Button{
-			.widget{
-				.width = Size::Expand,
-				.margin = Margin{4.f, 2.f},
-			},
-			.style = ButtonStyle::Subtle(),
-			.onClick = [onClick = onClick](GestureDetector::Event) {
-				if (onClick) onClick();
-			},
-			.child = Align{
-				.xAlign = 0.f,
-				.child = Text{
-					.text = text,
-					.fontSize = 14.f,
-				},
-			},
-		};
-	}
-};
-
-struct Heading {
-	// Args
-	std::string_view text;
-
-	operator squi::Child() const {
-		return Text{
-			.widget{
-				.margin = 8.f,
-			},
-			.text = text,
-			.fontSize = 20.f,
-			.font = FontStore::defaultFontBold,
-		};
-	}
+static inline std::vector<std::string_view> columnNames{
+	"Index",
+	"Value",
+	"Phase",
 };
 
 inline float getPhase(const std::complex<float> &val) {
@@ -81,7 +23,7 @@ std::vector<Graph::LineValue> generateGraphData(const std::complex<float> &val) 
 	std::vector<Graph::LineValue> data{};
 	data.reserve(1000);
 	const auto phase = std::atan2(val.imag(), val.real());
-	const auto magnitude = std::sqrt(val.real() * val.real() + val.imag() * val.imag()) * std::sqrt(2);
+	const auto magnitude = std::sqrt(val.real() * val.real() + val.imag() * val.imag()) * std::sqrt(2.f);
 	const auto angularFrequency = 50.f * 2.f * std::numbers::pi_v<float>;
 	for (int i = 0; i < 100; i++) {
 		data.emplace_back(Graph::LineValue{
@@ -118,19 +60,14 @@ ACResultsViewer::operator squi::Child() const {
 			};
 
 			if (!simulation.voltages.empty()) {
-				Children voltRet{
-					Heading{
-						.text = "Voltages",
-					}
-				};
+				Children voltRet{};
 				for (const auto &[index, val]: simulation.voltages | std::views::enumerate) {
 					voltRet.emplace_back(ResultsItem{
-						.text = std::format(
-							"N{} {}V {}°",
-							index + 1,
-							std::sqrt(val.real() * val.real() + val.imag() * val.imag()),
-							getPhase(val)
-						),
+						.items{
+							std::format("Node #{}", index + 1),
+							std::format("{}V", std::sqrt(val.real() * val.real() + val.imag() * val.imag())),
+							std::format("{}°", getPhase(val)),
+						},
 						.onClick = [elementSelector = elementSelector, node = graph.nodes.at(index + 1), graphDataUpdater, val]() {
 							std::vector<ElementId> ret{};
 							ret.reserve(node.lines.size());
@@ -143,23 +80,22 @@ ACResultsViewer::operator squi::Child() const {
 						},
 					});
 				}
-				ret.emplace_back(Card{.child{Column{.children = voltRet}}});
+				ret.emplace_back(ResultsCard{
+					.title = "Voltages",
+					.columns = columnNames,
+					.children = voltRet,
+				});
 			}
 
 			if (!simulation.currents.empty()) {
-				Children currRet{
-					Heading{
-						.text = "Currents",
-					}
-				};
+				Children currRet{};
 				for (const auto &val: simulation.currents) {
 					currRet.emplace_back(ResultsItem{
-						.text = std::format(
-							"V{} {}A, {}°",
-							val.id,
-							std::sqrt(val.value.real() * val.value.real() + val.value.imag() * val.value.imag()),
-							getPhase(val.value)
-						),
+						.items{
+							std::format("{} #{}", board.getElement(val.id).value().get().element.component.get().name, val.id),
+							std::format("{}V", std::sqrt(val.value.real() * val.value.real() + val.value.imag() * val.value.imag())),
+							std::format("{}°", getPhase(val.value)),
+						},
 						.onClick = [elementSelector = elementSelector, id = val.id, graphDataUpdater, val]() {
 							elementSelector.notify({id});
 
@@ -167,7 +103,11 @@ ACResultsViewer::operator squi::Child() const {
 						},
 					});
 				}
-				ret.emplace_back(Card{.child{Column{.children = currRet}}});
+				ret.emplace_back(ResultsCard{
+					.title = "Currents",
+					.columns = columnNames,
+					.children = currRet,
+				});
 			}
 
 			return ret;

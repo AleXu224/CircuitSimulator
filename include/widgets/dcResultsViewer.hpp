@@ -7,6 +7,7 @@ struct DCResultsViewer {
 	// Args
 	squi::Widget::Args widget{};
     const GraphDescriptor &graph;
+	const BoardStorage &board;
 	const DCSimulation &simulation;
 	squi::Observable<const std::vector<ElementId>&> elementSelector{};
 

@@ -52,7 +52,7 @@ struct BoardView {
 		void onDraw() override;
 
 		void updateChildren() override;
-		squi::vec2 layoutChildren(squi::vec2 maxSize, squi::vec2 minSize, ShouldShrink shouldShrink) override;
+		squi::vec2 layoutChildren(squi::vec2 maxSize, squi::vec2 minSize, ShouldShrink shouldShrink, bool final) override;
 		void arrangeChildren(squi::vec2 &pos) override;
 		void drawChildren() override;
 

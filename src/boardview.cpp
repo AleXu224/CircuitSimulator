@@ -107,6 +107,7 @@ BoardView::Impl::Impl(const BoardView &args)
 					.destroyObs = self.resultsDestroyer,
 					.child = ACResultsViewer{
 						.graph = descriptor,
+						.board = self.boardStorage,
 						.simulation = ACSimulation{descriptor},
 						.elementSelector = self.elementSelector,
 					},
@@ -118,6 +119,7 @@ BoardView::Impl::Impl(const BoardView &args)
 					.destroyObs = self.resultsDestroyer,
 					.child = DCResultsViewer{
 						.graph = descriptor,
+						.board = self.boardStorage,
 						.simulation = DCSimulation{descriptor},
 						.elementSelector = self.elementSelector,
 					},
@@ -333,12 +335,12 @@ void BoardView::Impl::updateChildren() {
 	}
 }
 
-squi::vec2 BoardView::Impl::layoutChildren(squi::vec2 /*maxSize*/, squi::vec2 /*minSize*/, ShouldShrink /*shouldShrink*/) {
+squi::vec2 BoardView::Impl::layoutChildren(squi::vec2 /*maxSize*/, squi::vec2 /*minSize*/, ShouldShrink /*shouldShrink*/, bool final) {
 	for (auto &child: getChildren()) {
 		if (!child) continue;
 		child->state.parent = this;
 		child->state.root = state.root;
-		child->layout(vec2::infinity(), vec2{}, {false, false});
+		child->layout(vec2::infinity(), vec2{}, {false, false}, final);
 	}
 	const auto _ = {boardStorage.lines, boardStorage.elements};
 	for (const auto &line: _ | std::views::join) {
@@ -346,7 +348,7 @@ squi::vec2 BoardView::Impl::layoutChildren(squi::vec2 /*maxSize*/, squi::vec2 /*
 		if (!widget) continue;
 		widget->state.parent = this;
 		widget->state.root = state.root;
-		widget->layout(vec2::infinity(), {});
+		widget->layout(vec2::infinity(), {}, {}, final);
 	}
 	for (auto &[key, val]: boardStorage.connections) {
 		auto &widget = val.widget;
@@ -355,7 +357,7 @@ squi::vec2 BoardView::Impl::layoutChildren(squi::vec2 /*maxSize*/, squi::vec2 /*
 		widget->state.parent = this;
 		widget->state.root = state.root;
 
-		widget->layout(vec2::infinity(), {}, {false, false});
+		widget->layout(vec2::infinity(), {}, {false, false}, final);
 	}
 	return {};
 }

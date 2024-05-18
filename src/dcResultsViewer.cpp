@@ -1,74 +1,9 @@
 #include "dcResultsViewer.hpp"
-#include "align.hpp"
-#include "button.hpp"
-#include "gestureDetector.hpp"
+#include "resultsCard.hpp"
+#include "resultsItem.hpp"
 #include "scrollableFrame.hpp"
-#include "text.hpp"
 
 using namespace squi;
-
-struct Card {
-	// Args
-	Child child{};
-
-	operator squi::Child() const {
-		return Box{
-			.widget{
-				.height = Size::Shrink,
-				.padding = 4.f,
-			},
-			.color = Color(1.f, 1.f, 1.f, 0.0512f),
-			.borderColor = Color(0.f, 0.f, 0.f, 0.1f),
-			.borderWidth{1.f},
-			.borderRadius{8.f},
-			.borderPosition = squi::Box::BorderPosition::outset,
-			.child = child,
-		};
-	}
-};
-
-struct ResultsItem {
-	// Args
-	std::string_view text;
-	static inline uint32_t counter = 0;
-	std::function<void()> onClick;
-
-	operator squi::Child() const {
-		return Button{
-			.widget{
-				.width = Size::Expand,
-				.margin = Margin{4.f, 2.f},
-			},
-			.style = ButtonStyle::Subtle(),
-			.onClick = [onClick = onClick](GestureDetector::Event) {
-				if (onClick) onClick();
-			},
-			.child = Align{
-				.xAlign = 0.f,
-				.child = Text{
-					.text = text,
-					.fontSize = 14.f,
-				},
-			},
-		};
-	}
-};
-
-struct Heading {
-	// Args
-	std::string_view text;
-
-	operator squi::Child() const {
-		return Text{
-			.widget{
-				.margin = Margin{16.f, 4.f, 8.f, 8.f},
-			},
-			.text = text,
-			.fontSize = 20.f,
-			.font = FontStore::defaultFontBold,
-		};
-	}
-};
 
 DCResultsViewer::operator squi::Child() const {
 	auto storage = std::make_shared<Storage>();
@@ -82,14 +17,13 @@ DCResultsViewer::operator squi::Child() const {
 		.children = [&]() -> Children {
 			Children ret{};
 			if (!simulation.voltages.empty()) {
-				Children voltRet{
-					Heading{
-						.text = "Voltages",
-					}
-				};
+				Children voltRet{};
 				for (const auto &[index, val]: simulation.voltages | std::views::enumerate) {
 					voltRet.emplace_back(ResultsItem{
-						.text = std::format("N{}: {:.2f}V", index + 1, val),
+						.items{
+							std::format("Node #{}", index + 1),
+							std::format("{:.2f}V", val),
+						},
 						.onClick = [elementSelector = elementSelector, node = graph.nodes.at(index + 1)]() {
 							std::vector<ElementId> ret{};
 							ret.reserve(node.lines.size());
@@ -100,24 +34,31 @@ DCResultsViewer::operator squi::Child() const {
 						},
 					});
 				}
-				ret.emplace_back(Card{.child{Column{.children = voltRet}}});
+				ret.emplace_back(ResultsCard{
+					.title = "Voltages",
+					.columns{"Index", "Value"},
+					.children = voltRet,
+				});
 			}
 
 			if (!simulation.currents.empty()) {
-				Children currRet{
-					Heading{
-						.text = "Currents",
-					}
-				};
+				Children currRet{};
 				for (const auto &val: simulation.currents) {
 					currRet.emplace_back(ResultsItem{
-						.text = std::format("V{}: {:.2f}A", val.id, val.value),
+						.items{
+							std::format("{} #{}", board.getElement(val.id)->get().element.component.get().name, val.id),
+							std::format("{:.2f}A", val.value),
+						},
 						.onClick = [elementSelector = elementSelector, id = val.id]() {
 							elementSelector.notify({id});
 						},
 					});
 				}
-				ret.emplace_back(Card{.child{Column{.children = currRet}}});
+				ret.emplace_back(ResultsCard{
+					.title = "Currents",
+					.columns{"Index", "Value"},
+					.children = currRet,
+				});
 			}
 
 			return ret;

@@ -9,6 +9,8 @@
 
 using namespace squi;
 
+constexpr float minDrawerWidth = 450.f;
+
 struct ResizeBar {
 	// Args
 	Observable<float> resizeDragObs{};
@@ -18,7 +20,7 @@ struct ResizeBar {
 		// Data
 		bool hovered = false;
 		bool focused = false;
-		float width = 300.f;
+		float width = minDrawerWidth;
 		std::unique_ptr<GLFWcursor, void (*)(GLFWcursor *)> cursor{
 			glfwCreateStandardCursor(GLFW_HRESIZE_CURSOR),
 			[](GLFWcursor *ptr) {
@@ -51,11 +53,11 @@ struct ResizeBar {
 				storage->focused = false;
 				cursorObs.notify(storage->shouldSetCursor());
 
-				storage->width = std::max(300.f, storage->width);
+				storage->width = std::max(minDrawerWidth, storage->width);
 			},
 			.onDrag = [storage, resizeDragObs = resizeDragObs](GestureDetector::Event event) {
 				storage->width -= event.state.getDragDelta().x;
-				resizeDragObs.notify(std::max(300.f, storage->width));
+				resizeDragObs.notify(std::max(minDrawerWidth, storage->width));
 			},
 			.child = Box{
 				.widget{
@@ -94,7 +96,7 @@ ResultsDisplay::operator squi::Child() const {
 			}));
 		},
 		.child = Box{
-			.widget{widget.withDefaultWidth(300.f)},
+			.widget{widget.withDefaultWidth(minDrawerWidth)},
 			.color{0x202020FF},
 			.child = Row{
 				.children{
