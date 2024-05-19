@@ -2,7 +2,7 @@
 #include "ranges"
 
 DCSimulation::DCSimulation(const GraphDescriptor &graph) {
-    if (graph.nodes.size() < 2) return;
+	if (graph.nodes.size() < 2) return;
 	auto incidenceMatrix = generateIncidenceMatrix(graph);
 	auto A = Eigen::MatrixXf(incidenceMatrix.bottomRows(incidenceMatrix.rows() - 1));
 	auto [mat, piv] = Utils::calculateNonzeroPivots(A);
@@ -29,14 +29,17 @@ DCSimulation::DCSimulation(const GraphDescriptor &graph) {
 	std::vector<int64_t> Lp{};
 	std::vector<int64_t> Le{};
 	std::vector<int64_t> Lj{};
+	std::vector<ElementId> voltageSourceIds{};
 	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
-		const auto id = elem.element.component.get().id;
-		if (id == 2)
+		const auto id = elem.second.element.component.get().id;
+		if (id == 2) {
 			Le.emplace_back(index);
-		else if (id == 3)
+			voltageSourceIds.emplace_back(elem.second.element.id);
+		} else if (id == 3) {
 			Lj.emplace_back(index);
-		else
+		} else {
 			Lp.emplace_back(index);
+		}
 	}
 
 	auto Ap = A(Eigen::all, Lp);
@@ -50,8 +53,8 @@ DCSimulation::DCSimulation(const GraphDescriptor &graph) {
 	auto params = Eigen::VectorXf(graph.elements.size());
 	int64_t paramIndex = 0;
 	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
-		const auto &element = elem.element;
-		const auto id = elem.element.component.get().id;
+		const auto &element = elem.second.element;
+		const auto id = elem.second.element.component.get().id;
 		if (id == 2) {
 			// Voltage source
 			if (element.propertySetIndex == 1) {
@@ -110,7 +113,7 @@ DCSimulation::DCSimulation(const GraphDescriptor &graph) {
 	std::cout << Ie_numeric_b << std::endl;
 
 	currents.reserve(Ie_numeric_b.rows());
-	for (const auto &[val, id]: std::views::zip(Ie_numeric_b.reshaped(), Le)) {
+	for (const auto &[val, id]: std::views::zip(Ie_numeric_b.reshaped(), voltageSourceIds)) {
 		currents.emplace_back(id, val);
 	}
 
@@ -128,8 +131,8 @@ Eigen::MatrixXf DCSimulation::generateIncidenceMatrix(const GraphDescriptor &gra
 	);
 	ret.fill(0);
 	for (const auto &[index, elem]: graph.elements | std::views::enumerate) {
-		ret.col(index)(elem.nodes.at(0)) = 1;
-		ret.col(index)(elem.nodes.at(1)) = -1;
+		ret.col(index)(elem.second.nodes.at(0)) = 1;
+		ret.col(index)(elem.second.nodes.at(1)) = -1;
 	}
 
 	return ret;

@@ -91,10 +91,10 @@ BoardView::Impl::Impl(const BoardView &args)
 		GraphDescriptor descriptor{self.boardStorage};
 
 		for (const auto &elem: descriptor.elements) {
-			for (const auto &[nodeIndex, nodeCoords]: std::views::zip(elem.nodes, elem.element.nodes)) {
+			for (const auto &[nodeIndex, nodeCoords]: std::views::zip(elem.second.nodes, elem.second.element.nodes)) {
 				auto &_ = self.nodeIndexes.emplace_back(NodeIndexDisplay{
 					.nodeIndex = nodeIndex,
-					.pos = nodeCoords + elem.element.pos,
+					.pos = nodeCoords + elem.second.element.pos,
 				});
 
 				self.addChild(_);

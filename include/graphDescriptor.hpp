@@ -60,6 +60,6 @@ private:
 	);
 
 public:
-	std::unordered_set<GraphElement, GraphElementHasher> elements{};
+	std::unordered_map<ElementId, GraphElement> elements{};
 	std::unordered_map<uint32_t, Node> nodes{};
 };

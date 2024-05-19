@@ -79,8 +79,8 @@ GraphDescriptor::ExpandNodeResult GraphDescriptor::expandNode(
 					args.ret.elements.emplace_back(elemData);
 
 					// Set the element connection to the current node
-					auto [it, _] = args.self.elements.emplace(GraphElement{.element{elemData}});
-					it->nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
+					auto [it, _] = args.self.elements.emplace(elemData.id, GraphElement{.element{elemData}});
+					it->second.nodes.at(connection.nodeIndex) = args.state.nodeIdCounter;
 
 					continue;
 				}
@@ -178,7 +178,7 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 	// Find the elements that have all their connections at the same node
 	std::vector<decltype(elements)::const_iterator> elemsToErase{};
 	for (auto it = elements.begin(); it != elements.end(); it++) {
-		if (std::ranges::adjacent_find(it->nodes, std::ranges::not_equal_to()) == it->nodes.end()) {
+		if (std::ranges::adjacent_find(it->second.nodes, std::ranges::not_equal_to()) == it->second.nodes.end()) {
 			elemsToErase.emplace_back(it);
 		}
 	}
@@ -187,7 +187,7 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 	std::println("----------------");
 	
 	for (auto &it: elemsToErase) {
-		std::println("Note: {}{} ignored due to having all connections on the same node", it->element.component.get().prefix, it->element.id);
+		std::println("Note: {}{} ignored due to having all connections on the same node", it->second.element.component.get().prefix, it->second.element.id);
 		elements.erase(it);
 	}
 
@@ -195,7 +195,7 @@ void GraphDescriptor::exploreBoard(BoardStorage &board) {
 	for (auto &[nodeId, node]: nodes) {
 		std::println("Node: {}, with {} lines and {} elements", nodeId, node.lines.size(), node.elements.size());
 	}
-	for (const auto &element: elements) {
+	for (const auto &[id, element]: elements) {
 		std::stringstream vectorNodeIds{};
 		for (const auto &node: element.nodes) {
 			vectorNodeIds << "N" << node << " ";
