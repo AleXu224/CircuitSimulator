@@ -4,7 +4,7 @@
 
 static const Component capacitor{
 	.name = "Capacitor",
-	.prefix = "F",
+	.prefix = "C",
 	.width = 2,
 	.height = 3,
 	.nodes{
